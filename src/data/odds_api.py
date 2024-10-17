@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 import json
 import pandas as pd
-from datetime import datetime
 
 env_path = Path('../../.env')
 load_dotenv(dotenv_path=env_path)
@@ -36,7 +35,7 @@ def get_team_odds(sport):
     data = r.json()
 
     if r.status_code == 200:
-        with open('NFL_Data_v2', 'w') as json_file:
+        with open('NFL_Data', 'w') as json_file:
             json.dump(data, json_file, indent=4)  # `indent=4` makes the output readable
             print(f"Data successfully exported to NFL_Data")
     else:
@@ -106,10 +105,6 @@ def get_props(sport, event_id):
 
 
 #### REQUEST DATA END
-
-
-
-
 
 
 
@@ -270,7 +265,7 @@ def bookies_and_odds(filename):
     bookies_df_ml = pd.DataFrame(game_lines, columns=[
         'game_ID',
         'bookie',
-        'matchup_type', 
+        'matchup_type',
         'Home_Team', 
         'line1', 
         'Away_Team', 
@@ -303,21 +298,54 @@ def bookies_and_odds(filename):
 
     return bookies_df_spreads, bookies_df_ml, bookies_df_totals
 
-
-
 def prop_bets_filters(filename):
     with open(filename, 'r') as file:
-        data = json.load(file)  # Load JSON data from the file
+        props_data = json.load(file)  # Load JSON data from the file
+        all_prop_bets = []
 
 
-        game_id = data['id']
+        for data in props_data:
+            if len(data['bookmakers']) == 0:
+                pass
+            else:
+                game_id = data['id']
+                all_props = data['bookmakers']
+                for bookie_type in all_props:
+                    bookie = bookie_type['key']
+                    for prop in bookie_type['markets']:
+                        prop_type = prop['key']
+                        last_update = prop['last_update']
+                        for betting_lines in prop['outcomes']:
+                            name = betting_lines['name']
+                            description = betting_lines['description']
+                            price = betting_lines['price']
+                            try:
+                                point = betting_lines['point']
+                            except:
+                                point = 'N/A'
 
-        all_props = data['bookmakers']
+                            all_prop_bets.append([
+                                        game_id,
+                                        last_update,
+                                        bookie,
+                                        prop_type,
+                                        name,
+                                        description,
+                                        price,
+                                        point
+                                        ])                        
 
-        bookie = bookie[0]['key']
-        
-        markets = bookie[0]['markets']
-        print(markets)
+                props_df = pd.DataFrame(all_prop_bets, columns=[
+                    'game_id',
+                    'last_update',
+                    'bookie',
+                    'prop_type', 
+                    'name',
+                    'description',
+                    'price',
+                    'point'
+                    ])
+        props_df.to_csv('props.csv', index=False)
 
 
 
@@ -329,16 +357,16 @@ def prop_bets_filters(filename):
 
 
 
-# def filter_scores(filename):
 
 
-
-#### FILTER DATA START
+#### REQUEST DATA START
 
 # teams_and_gametime('NFL_Data')
 # bookies_and_odds('NFL_Data_v2')
+prop_bets_filters('NFL_props.json')
 
-prop_bets_filters('NFL_props')
+
+#### FILTER DATA START
 # get_team_odds('americanfootball_nfl')
 # get_scores('americanfootball_nfl')
 # get_events('americanfootball_nfl')
