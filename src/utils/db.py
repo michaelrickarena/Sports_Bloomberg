@@ -310,12 +310,7 @@ class DB:
             logger.info("Successfully inserted nfl props data into props table")
         except Exception as e:
             logger.error(f"Failed to insert nfl props data into props table. Error: {e}, data: {props}", exc_info=True)
-### End NFL Props Create, insert, Get, Clear
-
-
-
-
-
+# ### End NFL Props Create, insert, Get, Clear
 
     ### truncate data from table
     def truncate_table(self, table: str) -> None:

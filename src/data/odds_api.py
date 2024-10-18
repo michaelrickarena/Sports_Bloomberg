@@ -137,9 +137,8 @@ class Odds_API:
 
         markets = [
             'player_reception_yds', 'player_field_goals', 'player_pass_interceptions',
-            'player_pass_longest_completion', 'player_pass_rush_reception_tds',
-            'player_pass_rush_reception_yds', 'player_pass_tds', 'player_pass_yds',
-            'player_receptions', 'player_reception_longest', 'player_rush_attempts',
+            'player_pass_rush_reception_tds', 'player_pass_rush_reception_yds', 
+            'player_pass_tds', 'player_pass_yds', 'player_receptions', 'player_reception_longest', 
             'player_rush_longest', 'player_rush_reception_tds', 'player_rush_reception_yds',
             'player_rush_yds', 'player_1st_td', 'player_anytime_td', 'player_last_td'
         ]
@@ -302,11 +301,4 @@ class Odds_API:
                                 ))       
         except Exception as e:
             logger.error(f"Failed to filter prop bets. Error: {e}")
-
-        print(all_prop_bets)
         return all_prop_bets
-
-api = Odds_API()
-api.get_props()
-
-#### END OF API FILTERING
