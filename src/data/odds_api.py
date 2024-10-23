@@ -89,12 +89,16 @@ class Odds_API:
     def get_scores(self, sport='americanfootball_nfl'):
         """Get scores for each team in a league."""
         data = self._make_request(f'/v4/sports/{sport}/scores/', params={'daysFrom': 3})
+        all_scores = []
+        
         if data:
-            with open('NFL_Scores.json', 'w') as json_file:
-                json.dump(data, json_file, indent=4)
-                logger.info("Data successfully exported to NFL_Scores.json")
+            for info in data:
+                all_scores.append(info)
+            return all_scores
+            logger.info("Data successfully saved all scores from games")
         else:
             logger.info("Failed to fetch scores.")
+            return []
 
     def get_events(self, sport='americanfootball_nfl'):
         """Get events for each sport."""
@@ -225,6 +229,7 @@ class Odds_API:
                                 spd_team2 = spread_outcomes[1]['name']
                                 spd_point2 = spread_outcomes[1]['point']
                                 spd_line2 = spread_outcomes[1]['price']
+                                logger.info(f"game_spreads for {game_ID} successfully fetched")
                                 game_spreads.append((
                                     game_ID, bookie, matchup_type, spd_team1, spd_point1, spd_line1,
                                     spd_team2, spd_point2, spd_line2, game_time, last_updated
@@ -236,6 +241,7 @@ class Odds_API:
                                 h2h_line1 = line_outcomes[0]['price']
                                 h2h_team2 = line_outcomes[1]['name']
                                 h2h_line2 = line_outcomes[1]['price']
+                                logger.info(f"game_lines for {game_ID} successfully fetched")
                                 game_lines.append((
                                     game_ID, bookie, matchup_type, h2h_team1, h2h_line1,
                                     h2h_team2, h2h_line2, game_time, last_updated
@@ -249,6 +255,7 @@ class Odds_API:
                                 over_or_under2 = totals_outcomes[1]['name']
                                 over_under_total2 = totals_outcomes[1]['point']
                                 over_under_line2 = totals_outcomes[1]['price']
+                                logger.info(f"game_totals for {game_ID} successfully fetched")
                                 game_totals.append((
                                     game_ID, bookie, matchup_type, home_team, away_team,
                                     over_or_under1, over_under_total1, over_under_line1,
@@ -302,3 +309,42 @@ class Odds_API:
         except Exception as e:
             logger.error(f"Failed to filter prop bets. Error: {e}")
         return all_prop_bets
+
+    def filter_scores(self):
+        scores = self.get_scores()  # Assume this gets your API scores
+        all_game_results = []
+        try:
+            for game in scores:
+                game_id = game['id']
+                sport_title = game['sport_title']
+                game_time = game['commence_time']
+                game_status = game['completed']
+                last_update = game['last_update']
+
+                # Default values in case 'scores' is None
+                team1, score1 = None, None
+                team2, score2 = None, None
+
+                # If scores exist, update them
+                if game['scores'] is not None:
+                    for i, score in enumerate(game['scores']):
+                        if i == 0:
+                            team1 = score['name']
+                            score1 = score['score']
+                        elif i == 1:
+                            team2 = score['name']
+                            score2 = score['score']
+
+                # Append the result to the list
+                logger.info(f"game scores for {game_id} successfully fetched")
+                all_game_results.append((
+                    game_id, sport_title, game_time, 
+                    game_status, last_update, 
+                    team1, score1, team2, score2))
+        except Exception as e:
+            logger.error(f"Failed to filter game scores. Error: {e}")
+
+        return all_game_results
+
+
+# api = Odds_API()

@@ -111,7 +111,8 @@ class DB:
                         Spread_2 FLOAT NOT NULL,
                         Line_2 INT NOT NULL,
                         event_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp for the event
-                        last_updated_timestamp TIMESTAMPTZ NOT NULL -- Timestamp of last update
+                        last_updated_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp of last update
+                        FOREIGN KEY (game_ID) REFERENCES scores(game_ID) ON DELETE CASCADE
                     );
                     """
                 )
@@ -166,7 +167,8 @@ class DB:
                         Away_Team TEXT NOT NULL,
                         Line_2 INT NOT NULL,
                         event_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp for the event
-                        last_updated_timestamp TIMESTAMPTZ NOT NULL -- Timestamp of last update
+                        last_updated_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp of last update
+                        FOREIGN KEY (game_ID) REFERENCES scores(game_ID) ON DELETE CASCADE
                     );
                     """
                 )
@@ -224,7 +226,8 @@ class DB:
                         Over_Under_Total_2 FLOAT NOT NULL,
                         Over_Under_Line_2 INT NOT NULL,
                         event_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp for the event
-                        last_updated_timestamp TIMESTAMPTZ NOT NULL -- Timestamp of last update
+                        last_updated_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp of last update
+                        FOREIGN KEY (game_ID) REFERENCES scores(game_ID) ON DELETE CASCADE
                     );
                     """
                 )
@@ -279,7 +282,8 @@ class DB:
                         Bet_Type TEXT NOT NULL,
                         Player_Name TEXT NOT NULL,
                         Betting_Line INT NOT NULL,
-                        Betting_Point TEXT NOT NULL -- this is text because it can either be N/A or a float. Easier to convert text of a float later on.
+                        Betting_Point TEXT NOT NULL, -- this is text because it can either be N/A or a float. Easier to convert text of a float later on.
+                        FOREIGN KEY (game_ID) REFERENCES scores(game_ID) ON DELETE CASCADE
                     );
                     """
                 )
@@ -288,8 +292,9 @@ class DB:
         except Exception as e:
             logger.error(f"error creating props table. Error: {e}", exc_info=True)
 
+
     def insert_NFL_props(self, props):
-        """Inserts provided pandas dataframe of payments into DB
+        """Inserts provided list of tuples of props into DB
 
         Args:
         props (list of tuples): The list of tuples will have the following columns.
@@ -305,12 +310,111 @@ class DB:
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.executemany("INSERT INTO props (game_ID, last_updated_timestamp, Bookie, Prop_Type, Bet_Type, Player_Name, Betting_Line, Betting_Point) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", props)
+                for prop in props:
+                    cursor.execute("INSERT INTO props (game_ID, last_updated_timestamp, Bookie, Prop_Type, Bet_Type, Player_Name, Betting_Line, Betting_Point) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", prop)
             self.conn.commit()
             logger.info("Successfully inserted nfl props data into props table")
         except Exception as e:
             logger.error(f"Failed to insert nfl props data into props table. Error: {e}, data: {props}", exc_info=True)
+
+#### End NFL Props Create, insert, Get, Clear
+
+
+#### START NFL Scores Create, insert, Get, Clear
+    def create_NFL_scores(self):
+        """ Creates Scores table in DB """
+
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS scores (
+                        id SERIAL PRIMARY KEY,
+                        game_ID VARCHAR(255) UNIQUE,
+                        sport_title TEXT NOT NULL,      
+                        game_time TIMESTAMPTZ NOT NULL, -- Timestamp of last update  
+                        game_status TEXT NOT NULL,
+                        last_updated_timestamp TIMESTAMPTZ, -- Timestamp of last update
+                        team1 TEXT,
+                        score1 INT,
+                        team2 TEXT,
+                        score2 INT
+                    );
+                    """
+                )
+            self.conn.commit()
+            logger.info("Successfully created scores table or table already exists")
+        except Exception as e:
+            logger.error(f"error creating scores table. Error: {e}", exc_info=True)
+
+    def insert_NFL_scores(self, scores):
+        """Inserts provided list of tuples of scores into DB only if game_status and game_ID are not already in the table.
+
+        Args:
+        scores (list of tuples): The list of tuples will have the following columns.
+
+                - 'game_ID': Unique ID from OddsAPI for a game/event
+                - 'sport_title': name of sport being uploaded into db
+                - 'game_time': time game starts      
+                - 'game_status': completed or incomplete game
+                - 'last_updated_timestamp': last time updated    
+                - 'team1': name of team 1
+                - 'score1': score of team 1
+                - 'team2': name of team 2     
+                - 'score2': score of team 2
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                for score in scores:
+                    cursor.execute("""
+                                        INSERT INTO scores (game_ID, sport_title, game_time, game_status, last_updated_timestamp, team1, score1, team2, score2)
+                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                        ON CONFLICT (game_ID) DO UPDATE SET
+                                            sport_title = EXCLUDED.sport_title,
+                                            game_time = EXCLUDED.game_time,
+                                            game_status = EXCLUDED.game_status,
+                                            last_updated_timestamp = EXCLUDED.last_updated_timestamp,
+                                            team1 = EXCLUDED.team1,
+                                            score1 = EXCLUDED.score1,
+                                            team2 = EXCLUDED.team2,
+                                            score2 = EXCLUDED.score2;
+                                    """, score)
+            self.conn.commit()
+            logger.info("Successfully inserted NFL scores data into scores table")
+        except Exception as e:
+            logger.error(f"Failed to insert NFL scores data into scores table. Error: {e}, data: {scores}", exc_info=True)
+
+
+    def delete_games_with_false_status(self):
+        """Deletes all rows for game_IDs where any row has game_status = 'False'."""
+        try:
+            with self.conn.cursor() as cursor:
+                # Find all game_IDs where any row has game_status = 'False'
+                cursor.execute("""
+                    SELECT DISTINCT game_ID
+                    FROM scores
+                    WHERE game_status = 'true';
+                """)
+                game_ids_to_delete = cursor.fetchall()
+
+                if game_ids_to_delete:
+                    # Delete all rows with those game_IDs
+                    cursor.execute("""
+                        DELETE FROM scores
+                        WHERE game_ID = ANY(%s);
+                    """, (tuple([gid[0] for gid in game_ids_to_delete]),))  # Extract the game_IDs from the tuples
+                    self.conn.commit()
+                    logger.info(f"Deleted all rows for game_IDs: {game_ids_to_delete}")
+                else:
+                    logger.info("No rows with game_status = 'true' found for deletion.")
+        except Exception as e:
+            logger.error(f"Error occurred deleting scores where game_status is true. Error: {e}", exc_info=True)
+
+
+
+
 # ### End NFL Props Create, insert, Get, Clear
+
 
     ### truncate data from table
     def truncate_table(self, table: str) -> None:

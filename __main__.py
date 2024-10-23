@@ -20,23 +20,32 @@ def main():
 
         # Create tables and db
         db.create_db()
+        db.create_NFL_scores()
         db.create_NFL_upcoming_games()
         db.create_NFL_spreads()
         db.create_NFL_moneyline()
         db.create_NFL_overunder()
         db.create_NFL_props()
+        
 
+        all_game_results = odds_api.filter_scores()
         game_totals, game_spreads, game_lines = odds_api.bookies_and_odds()
         all_prop_bets = odds_api.prop_bets_filters()
         all_event_ids, all_event_details = odds_api.get_events()
 
         # Insert data into tables
+        db.insert_NFL_scores(all_game_results)
         db.insert_NFL_upcoming_games(all_event_details)
         db.insert_NFL_spreads(game_spreads)
         db.insert_NFL_moneyline(game_lines)
         db.insert_NFL_overunder(game_totals)
         db.insert_NFL_props(all_prop_bets)
 
+        try:
+            db.delete_games_with_false_status()  # Delete any game_IDs with False status
+            logger.info("Removed all game_IDs with game_status set to False")
+        except Exception as e:
+            logger.error("Error occurred removing game_IDs with False status. Error {e}")
 
 
     except Exception as e:
@@ -48,9 +57,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-## Clear Data from tables
-# db.truncate_table('moneyline')
-# db.truncate_table('spreads')
-# db.truncate_table('overunder')
