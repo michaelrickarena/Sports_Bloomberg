@@ -33,7 +33,13 @@ def main():
         all_prop_bets = odds_api.prop_bets_filters()
         all_event_ids, all_event_details = odds_api.get_events()
 
-        # Insert data into tables
+        try:
+            db.truncate_table('upcoming_games')
+        except Exception as e:
+            logging.error(f'Error with truncating upcoming_games table. Error: {e}')
+            pass
+
+        ## Insert data into tables
         db.insert_NFL_scores(all_game_results)
         db.insert_NFL_upcoming_games(all_event_details)
         db.insert_NFL_spreads(game_spreads)
@@ -45,7 +51,7 @@ def main():
             db.delete_games_with_false_status()  # Delete any game_IDs with False status
             logger.info("Removed all game_IDs with game_status set to False")
         except Exception as e:
-            logger.error("Error occurred removing game_IDs with False status. Error {e}")
+            logger.error(f"Error occurred removing game_IDs with False status. Error {e}")
 
 
     except Exception as e:

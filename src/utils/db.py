@@ -11,8 +11,13 @@ import logging.config
 env_path = Path('../../.env')
 load_dotenv(dotenv_path=env_path)
 
-# Load logging configuration
-logging.config.fileConfig('logging.conf')
+# Adjust the path to the parent directory
+logging_conf_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logging.conf')
+
+# Load the logging configuration
+logging.config.fileConfig(logging_conf_path)
+
+# Create a logger instance
 logger = logging.getLogger('db_logger')
 
 class DB:
@@ -87,8 +92,6 @@ class DB:
             logger.error(f"Failed to insert data into upcoming_games table. Error: {e}, data: {upcoming_games}", exc_info=True)
 
 ### END NFL upcoming games Create, insert, Get, Clear
-
-
 
 ### START NFL SPREADS Create, insert, Get, Clear
     def create_NFL_spreads(self):
@@ -201,6 +204,20 @@ class DB:
         except Exception as e:
             logger.error(f"Failed to insert data into moneyline table. Error: {e}, data: {moneyline}", exc_info=True)
 
+    def get_moneyline_data(self):
+        """Fetch moneyline data from the database."""
+        query = """
+            SELECT game_ID, bookie, home_team, line_1, away_team, line_2, last_updated_timestamp
+            FROM moneyline
+            ORDER BY last_updated_timestamp;
+        """
+        with self.conn.cursor() as cursor:
+            cursor.execute(query)
+            data = cursor.fetchall()
+        return data
+
+
+
 ### END NFL MoneyLine Create, insert, Get, Clear
 
 
@@ -262,6 +279,20 @@ class DB:
             logger.info("Successfully inserted data into overunder table")
         except Exception as e:
             logger.error(f"Failed to insert data into overunder table. Error: {e}, data: {overunder}", exc_info=True)
+
+
+    def get_overunder_data(self):
+        """Fetch moneyline data from the database."""
+        query = """
+            SELECT game_ID, bookie, home_team, line_1, away_team, line_2, last_updated_timestamp
+            FROM moneyline
+            ORDER BY last_updated_timestamp;
+        """
+        with self.conn.cursor() as cursor:
+            cursor.execute(query)
+            data = cursor.fetchall()
+        return data
+
 
 ### END NFL Overunder Create, insert, Get, Clear
 
@@ -395,20 +426,21 @@ class DB:
                     FROM scores
                     WHERE game_status = 'true';
                 """)
-                game_ids_to_delete = cursor.fetchall()
+                game_ids_to_delete = [gid[0] for gid in cursor.fetchall()]
 
                 if game_ids_to_delete:
                     # Delete all rows with those game_IDs
                     cursor.execute("""
                         DELETE FROM scores
                         WHERE game_ID = ANY(%s);
-                    """, (tuple([gid[0] for gid in game_ids_to_delete]),))  # Extract the game_IDs from the tuples
+                    """, (game_ids_to_delete,))  # Pass list directly for PostgreSQL array format
                     self.conn.commit()
                     logger.info(f"Deleted all rows for game_IDs: {game_ids_to_delete}")
                 else:
                     logger.info("No rows with game_status = 'true' found for deletion.")
         except Exception as e:
             logger.error(f"Error occurred deleting scores where game_status is true. Error: {e}", exc_info=True)
+
 
 
 
