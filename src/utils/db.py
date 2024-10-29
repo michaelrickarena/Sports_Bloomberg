@@ -3,22 +3,10 @@ db.py - Contains functionality to interact with our Azure SQL DB
 """
 import psycopg2
 import os
-from dotenv import load_dotenv
 from pathlib import Path
-import logging.config
+import logging
 
-# Load environment variables
-env_path = Path('../../.env')
-load_dotenv(dotenv_path=env_path)
-
-# Adjust the path to the parent directory
-logging_conf_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logging.conf')
-
-# Load the logging configuration
-logging.config.fileConfig(logging_conf_path)
-
-# Create a logger instance
-logger = logging.getLogger('db_logger')
+logger = logging.getLogger(__name__)
 
 class DB:
     """Organizes database operations"""

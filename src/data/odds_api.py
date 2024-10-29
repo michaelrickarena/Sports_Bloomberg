@@ -1,26 +1,13 @@
 import requests
-from dotenv import load_dotenv
 import os
 from pathlib import Path
 import json
-import pandas as pd
-import logging.config
+import logging
 
-
-# Adjust the path to the parent directory
-logging_conf_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logging.conf')
-
-# Load the logging configuration
-logging.config.fileConfig(logging_conf_path)
-
-# Create a logger instance
-logger = logging.getLogger('db_logger')
+logger = logging.getLogger(__name__)
 
 class Odds_API:
     def __init__(self):
-        env_path = Path('../../.env')
-        load_dotenv(dotenv_path=env_path)
-
         self.link = os.getenv('ODDS_LINK')
         self.odds_apikey = os.getenv('API_KEY_ODDS_API')
 
@@ -131,8 +118,6 @@ class Odds_API:
             logger.error(f"events failed to be fetched. Error: {e}")
 
 
-
-
 # Below done
     def get_props(self, sport='americanfootball_nfl'):
         """Get player props for a specific event."""
@@ -181,22 +166,22 @@ class Odds_API:
 #### START OF API FILTERING
 
 # Below done
-    def teams_and_gametime(self):
-        """Show away and home teams and game times."""
-        games = []
-        data = self.get_team_odds()
+    # def teams_and_gametime(self):
+    #     """Show away and home teams and game times."""
+    #     games = []
+    #     data = self.get_team_odds()
 
-        for sport in data:
-            game_ID = sport['id']
-            home_team = sport['home_team']
-            away_team = sport['away_team']
-            game_time = sport['commence_time']
-            game = (game_ID, home_team, away_team, game_time)
-            if game not in games:
-                games.append(game)
+    #     for sport in data:
+    #         game_ID = sport['id']
+    #         home_team = sport['home_team']
+    #         away_team = sport['away_team']
+    #         game_time = sport['commence_time']
+    #         game = (game_ID, home_team, away_team, game_time)
+    #         if game not in games:
+    #             games.append(game)
 
-        games_df = pd.DataFrame(games, columns=["Game_ID", "home_team", "away_team", "game_time"])
-        return games_df
+    #     games_df = pd.DataFrame(games, columns=["Game_ID", "home_team", "away_team", "game_time"])
+    #     return games_df
 # above done
 
 # below done

@@ -1,24 +1,11 @@
 import os
 from pathlib import Path
-import logging.config
+import logging
 import sys
 import matplotlib.pyplot as plt
-
-# Add the project root directory to sys.path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
-sys.path.append(project_root)
-
-# Now you can import your DB class
 from src.utils.db import DB
 
-# Adjust the path to the parent directory
-logging_conf_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'logging.conf')
-
-# Load the logging configuration
-logging.config.fileConfig(logging_conf_path)
-
-# Create a logger instance
-logger = logging.getLogger('db_logger')
+logger = logging.getLogger(__name__)
 
 def plot_moneyline():
     db = DB()
@@ -68,6 +55,3 @@ def plot_moneyline():
         plt.xticks(rotation=45)
         plt.tight_layout()
         plt.show()  # Show the plot for the current game ID
-
-if __name__ == "__main__":
-    plot_moneyline()

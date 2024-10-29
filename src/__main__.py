@@ -1,17 +1,15 @@
 from dotenv import load_dotenv
 from src.data.odds_api import Odds_API
 from src.utils.db import DB
-import psycopg2
-import logging.config
+from src.visualizations.graph_details import plot_moneyline
+import logging
 
-# Load logging configuration
-logging.config.fileConfig('logging.conf')
-logger = logging.getLogger('db_logger')
+logger = logging.getLogger(__name__)
+load_dotenv()
 
 def main():
     logger.info("Executing main...")
-
-    load_dotenv()
+    
     db = None  # Ensure db is defined before try block
 
     try:
@@ -27,7 +25,6 @@ def main():
         db.create_NFL_overunder()
         db.create_NFL_props()
         
-
         all_game_results = odds_api.filter_scores()
         game_totals, game_spreads, game_lines = odds_api.bookies_and_odds()
         all_prop_bets = odds_api.prop_bets_filters()
@@ -63,3 +60,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # plot_moneyline()
