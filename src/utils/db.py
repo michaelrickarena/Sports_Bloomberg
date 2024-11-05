@@ -16,6 +16,7 @@ class DB:
 
         try:
             self.conn = psycopg2.connect(os.getenv("DATABASE_URL"))
+            self.cursor = self.conn.cursor()
             logger.info("Database connection established.")
         except Exception as e:
             logger.error(f"Failed to connect to the database. Error: {e}", exc_info=True)
@@ -34,7 +35,6 @@ class DB:
             logger.info("defaultdb created or already exists")
         except Exception as e:
             logger.error(f"Failed to create default db. Error: {e}", exc_info=True)
-
 
 
 ### START NFL upcoming games Create, insert, Get, Clear
@@ -430,9 +430,6 @@ class DB:
             logger.error(f"Error occurred deleting scores where game_status is true. Error: {e}", exc_info=True)
 
 
-
-
-
 # ### End NFL Props Create, insert, Get, Clear
 
 
@@ -450,9 +447,6 @@ class DB:
             logger.info(f"Successfully truncated {table} table")
         except Exception as e:
             logger.error(f"Failed to truncate {table} table. Error: {e}", exc_info=True)
-
-
-
 
 #Close database connection after api calls run.
     def close_connection(self):
