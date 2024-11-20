@@ -433,6 +433,59 @@ class DB:
 # ### End NFL Props Create, insert, Get, Clear
 
 
+    def get_arb_data(self):
+        """Fetch arb from db"""
+        query = """
+            WITH latest AS (
+                SELECT game_id, bookie, MAX(last_updated_timestamp) AS latest_dt
+                FROM moneyline
+                GROUP BY game_id, bookie
+            ),
+            latest_detailed AS (
+                SELECT l.game_id, l.bookie, l.latest_dt, m.line_1, m.line_2
+                FROM latest AS l
+                LEFT JOIN moneyline AS m
+                ON l.game_id = m.game_id AND l.bookie = m.bookie AND l.latest_dt = m.last_updated_timestamp 
+            ),
+            line1_max AS (
+                SELECT l.game_id, l.line_1, ld.bookie
+                FROM (
+                    SELECT game_id, MAX(line_1) AS line_1
+                    FROM latest_detailed
+                    GROUP BY game_id
+                ) AS l
+                LEFT JOIN latest_detailed AS ld
+                ON l.game_id = ld.game_id AND l.line_1 = ld.line_1 
+            ),
+            line2_max AS (
+                SELECT l.game_id, l.line_2, ld.bookie
+                FROM (
+                    SELECT game_id, MAX(line_2) AS line_2
+                    FROM latest_detailed
+                    GROUP BY game_id
+                ) AS l
+                LEFT JOIN latest_detailed AS ld
+                ON l.game_id = ld.game_id AND l.line_2 = ld.line_2
+            ),
+            arb1 AS (
+                SELECT * FROM line1_max
+            ),
+            arb2 AS (
+                SELECT * FROM line2_max
+            )
+            SELECT * FROM arb1
+            UNION ALL
+            SELECT * FROM arb2;
+
+        """
+        with self.conn.cursor() as cursor:
+            cursor.execute(query)
+            data = cursor.fetchall()
+            print(data)
+        return data
+
+
+
     ### truncate data from table
     def truncate_table(self, table: str) -> None:
         """Truncates a specified table in the database.

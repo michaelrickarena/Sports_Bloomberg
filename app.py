@@ -27,6 +27,9 @@ def lambda_handler(event=None, context=None):
         db.create_NFL_moneyline()
         db.create_NFL_overunder()
         db.create_NFL_props()
+
+
+        # db.get_arb_data()
       
         # API Usage from Odds API
         all_game_results = odds_api.filter_scores()
