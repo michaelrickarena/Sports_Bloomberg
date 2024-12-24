@@ -1,0 +1,192 @@
+/* Basic Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Body Styling */
+body {
+  font-family: Arial, sans-serif;
+  line-height: 1.6;
+  background-color: #f9f9f9;
+  color: #333;
+  padding: 20px;
+}
+
+/* Container for the dropdown */
+select {
+  padding: 8px;
+  margin: 20px 0;
+  font-size: 16px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #fff;
+  width: 100%;
+  max-width: 400px;
+  display: block;
+}
+
+/* Headings Styling */
+h3,
+h4 {
+  margin-top: 0px;
+  margin-bottom: 20px;
+  color: #333;
+  text-align: center;
+}
+h2 {
+  font-size: 1.5rem;
+  margin-top: 20px;
+}
+
+h3 {
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+}
+
+h4 {
+  font-size: 1.2rem;
+  margin-top: 10px;
+  color: #555;
+}
+
+/* Container for the chart and team labels */
+.chart-container {
+  width: 47%; /* Ensure each chart takes up half of the available space */
+  margin: 20px 1%; /* Spacing between charts */
+  padding: 20px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  /* Ensure chart containers are aligned correctly */
+}
+
+/* Parent container for the two charts */
+.chart-wrapper {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px; /* Gap between charts */
+  flex-wrap: wrap; /* Allow charts to wrap on smaller screens */
+}
+
+/* Style for the charts */
+.chart-container canvas {
+  width: 100% !important;
+  height: auto !important;
+  max-height: 400px;
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+  .chart-container {
+    width: 100%; /* Stack charts on smaller screens */
+  }
+}
+
+/* Other styling remains the same */
+
+/* Styling for checkboxes */
+div.checkbox-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-top: 10px;
+  justify-content: center; /* Center checkboxes horizontally */
+  align-items: center; /* Center checkboxes vertically */
+}
+
+div input[type="checkbox"] {
+  margin-right: 10px;
+  transform: scale(1.2);
+}
+
+div label {
+  font-size: 1rem;
+  margin-right: 20px;
+  cursor: pointer;
+}
+
+div input[type="checkbox"]:checked + label {
+  font-weight: bold;
+  color: #0073e6;
+}
+
+.select-bookies-container {
+  margin: 20px 0; /* Add spacing above and below */
+  padding: 10px;
+  border: 1px solid #ccc; /* Optional: outline for separation */
+  border-radius: 5px; /* Rounded corners */
+  background-color: #f9f9f9; /* Light background */
+  display: flex;
+  flex-direction: column; /* Arrange items in a column */
+  align-items: center; /* Center items horizontally */
+  justify-content: center; /* Center items vertically */
+  text-align: center;
+}
+
+.bookie-checkboxes {
+  display: flex;
+  flex-wrap: wrap; /* Allow checkboxes to wrap to new lines */
+  gap: 10px; /* Add space between checkboxes */
+  justify-content: center; /* Center checkboxes horizontally */
+}
+
+.bookie-checkbox {
+  display: flex;
+  align-items: center; /* Vertically align the checkbox and label */
+  justify-content: center; /* Center the checkbox and label horizontally */
+}
+
+/* Updated Bookie Legend Styles */
+.bookie-legend-container {
+  display: flex;
+  justify-content: center; /* Center horizontally */
+  align-items: center; /* Center vertically if needed */
+  text-align: center; /* Ensure text inside is also centered */
+  margin-top: 20px; /* Optional: Add spacing */
+}
+
+.bookie-legend {
+  display: block; /* Ensure each item is rendered on a new line */
+  margin-top: 20px; /* Add space above the legend */
+}
+
+/* Style for each bookie item in the legend */
+.bookie-legend div {
+  display: block; /* Force each bookie to be on a new line */
+  margin-bottom: 10px; /* Add spacing between the bookies */
+}
+
+.bookie-legend span {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .chart-container {
+    max-width: 100%;
+    padding: 15px;
+  }
+
+  select {
+    width: 100%;
+  }
+
+  div.checkbox-container {
+    justify-content: center; /* Ensure checkboxes stay centered on smaller screens */
+  }
+
+  div input[type="checkbox"] {
+    margin-right: 5px;
+  }
+
+  div label {
+    font-size: 0.9rem;
+    margin-right: 10px;
+  }
+}

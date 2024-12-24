@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from sports.views import MoneylineListView, OverunderListView, PropsListView, ScoresListView, SpreadsListView, UpcomingGamesListView
+from sports.views import MoneylineListView, MoneylineChartDataView, OverunderListView, PropsListView, ScoresListView, SpreadsListView, UpcomingGamesListView
 from django.http import HttpResponse
 
 # Define the homepage view
@@ -26,7 +26,12 @@ def homepage(request):
 urlpatterns = [
     path('', homepage, name='home'),  # This adds a view for the root path
     path('admin/', admin.site.urls),
-    path('api/moneyline/', MoneylineListView.as_view(), name='moneyline_list'),
+    path("api/moneyline/", MoneylineListView.as_view(), name="moneyline-list"),
+    path(
+        "api/moneyline/chart/<int:game_id>/",
+        MoneylineChartDataView.as_view(),
+        name="moneyline-chart-data",
+    ),
     path('api/overunder/', OverunderListView.as_view(), name='overunder_list'),
     path('api/props/', PropsListView.as_view(), name='props_list'),
     path('api/scores/', ScoresListView.as_view(), name='scores_list'),
