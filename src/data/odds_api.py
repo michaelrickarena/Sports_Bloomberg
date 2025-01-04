@@ -10,10 +10,12 @@ class Odds_API:
     def __init__(self):
         self.link = os.getenv('ODDS_LINK')
         self.odds_apikey = os.getenv('API_KEY_ODDS_API')
+        self.all_sports = ['americanfootball_nfl', 'icehockey_nhl', 'basketball_nba', 'baseball_mlb']
+        self.active_sports = []  # To store active sports
 
-#### START OF API CALLS
+    #### START OF API CALLS
 
-    # helper function to make API Call
+    # Helper function to make API Call
     def _make_request(self, endpoint: str, params: dict = None) -> dict:
         """Helper function to make API requests."""
         url = f"{self.link}{endpoint}"
@@ -24,11 +26,10 @@ class Odds_API:
         try:
             response = requests.get(url, params=params)  # Use params to manage query parameters
 
-                    # Check for 401 Unauthorized
+            # Check for 401 Unauthorized
             if response.status_code == 401:
                 logger.error("Unauthorized access (401) - breaking the loop.")
                 raise Exception("401 Unauthorized")  # Raise a specific exception for 401
-            
             
             response.raise_for_status()  # Raise an error for bad responses
             return response.json()
@@ -39,104 +40,159 @@ class Odds_API:
             logger.error(f"Other error occurred: {err}")
             return {}
 
-
-    # get all active sports that Odds API offers
-    # Currently not in use
-    def active_sports(self):
+    # Get all active sports that Odds API offers but filter based off sports we care about
+    def fetch_active_sports(self):
         """Fetch a list of active sports from the API."""
         data = self._make_request('/v4/sports')
         if data:
-            with open('Active_Sports.json', 'w') as json_file:
-                json.dump(data, json_file, indent=4)
-                logger.info("Data successfully exported to Active_Sports.json")
+            # Filter active sports to only include the sports of interest
+            self.active_sports = [
+                sport['key'] for sport in data 
+                if sport.get('active') and sport['key'] in self.all_sports
+            ]
+            logger.info(f"Active sports: {self.active_sports}")
         else:
-            logger.info("Failed to fetch active sports.")
+            logger.error("Failed to fetch active sports.")
 
-    def get_team_odds(self, sport='americanfootball_nfl'):
+    def get_team_odds(self):
         """Get odds for each team in a league."""
-
         all_team_odds = []
-        data = self._make_request(f'/v4/sports/{sport}/odds/', params={
-            'regions': 'us',
-            'markets': 'h2h,spreads,totals',
-            'oddsFormat': 'american'
-        })
+        for sport in self.active_sports:
+            data = self._make_request(f'/v4/sports/{sport}/odds/', params={
+                'regions': 'us',
+                'markets': 'h2h,spreads,totals',
+                'oddsFormat': 'american'
+            })
+            if data:
+                all_team_odds.extend(data)  # `data` is already iterable, no need for an inner loop
+                logger.info(f"Team odds successfully fetched for {sport}.")
+            else:
+                logger.error(f"Team odds failed to be fetched for {sport}.")
+        return all_team_odds
 
 
-        if data:
-            for info in data:
-                all_team_odds.append(info)
-            logger.info("Team odds successfully fetched.")
-            return all_team_odds
-        else:
-            logger.error("Team odds failed to be fetched.")
 
-
-    # currently not in use
-    def get_scores(self, sport='americanfootball_nfl'):
-        """Get scores for each team in a league."""
-        data = self._make_request(f'/v4/sports/{sport}/scores/', params={'daysFrom': 3})
+    def get_scores(self):
+        """Get scores for each team in all active sports."""
         all_scores = []
         
-        if data:
-            for info in data:
-                all_scores.append(info)
-            return all_scores
-            logger.info("Data successfully saved all scores from games")
-        else:
-            logger.info("Failed to fetch scores.")
-            return []
-
-    def get_events(self, sport='americanfootball_nfl'):
-        """Get events for each sport."""
-        data = self._make_request(f'/v4/sports/{sport}/events')
-        all_event_ids = []
-        all_event_details = []
-        try:
+        
+        for sport in self.active_sports:
+            data = self._make_request(f'/v4/sports/{sport}/scores/', params={'daysFrom': 3})
+            
             if data:
                 for info in data:
-                    all_event_ids.append(info['id'])
-                    event_id = info['id']
-                    sport_name = info['sport_title']
-                    game_time = info['commence_time']
-                    home_team = info['home_team']
-                    away_team = info['away_team']
-                    all_event_details.append((
-                        event_id,
-                        sport_name,
-                        game_time,
-                        home_team,
-                        away_team
-                    ))
-                logger.info("events successfully fetched.")
-                return all_event_ids, all_event_details
-                    # return data
+                    all_scores.append(info)
+                logger.info(f"Successfully fetched scores for {sport}")
             else:
-                logger.error("events failed to be fetched. and returned an empty array")
-                return []
-        except Exception as e:
-            logger.error(f"events failed to be fetched. Error: {e}")
-
-
-# Below done
-    def get_props(self, sport='americanfootball_nfl'):
-        """Get player props for a specific event."""
+                logger.warning(f"Failed to fetch scores for {sport}")
         
+        if all_scores:
+            logger.info("Data successfully saved all scores from games")
+        else:
+            logger.info("No scores were fetched.")
+            
+        return all_scores
+
+
+    def get_events(self):
+        """Get events for active sports only."""
+        # Ensure active sports are up-to-date
+        if not self.active_sports:
+            self.fetch_active_sports()
+
+        all_event_ids = []
+        all_event_details = []
+
+        try:
+            for sport in self.active_sports:
+                data = self._make_request(f'/v4/sports/{sport}/events')
+                if data:
+                    for info in data:
+                        all_event_ids.append(info['id'])
+                        event_id = info['id']
+                        sport_name = info['sport_title']
+                        game_time = info['commence_time']
+                        home_team = info['home_team']
+                        away_team = info['away_team']
+                        all_event_details.append((
+                            event_id,
+                            sport_name,
+                            game_time,
+                            home_team,
+                            away_team
+                        ))
+                    logger.info(f"Events successfully fetched for sport: {sport}.")
+                else:
+                    logger.warning(f"No events found for sport: {sport}.")
+            return all_event_ids, all_event_details
+        except Exception as e:
+            logger.error(f"Failed to fetch events for active sports. Error: {e}")
+            return []
+
+
+
+    # Below done
+    def get_props(self):
+        """Get player props for all active sports."""
+
         event_id_list, all_event_details = self.get_events()
 
-        markets = [
-            'player_reception_yds', 'player_field_goals', 'player_pass_interceptions',
-            'player_pass_rush_reception_tds', 'player_pass_rush_reception_yds', 
-            'player_pass_tds', 'player_pass_yds', 'player_receptions', 'player_reception_longest', 
-            'player_rush_longest', 'player_rush_reception_tds', 'player_rush_reception_yds',
-            'player_rush_yds', 'player_1st_td', 'player_anytime_td', 'player_last_td'
-        ]
-        markets_joined = ",".join(markets)
+        # Define market groups by sport_name
+        market_groups = {
+            'NFL': [
+                'player_reception_yds', 'player_field_goals', 'player_pass_interceptions',
+                'player_pass_rush_reception_tds', 'player_pass_rush_reception_yds', 
+                'player_pass_tds', 'player_pass_yds', 'player_receptions', 'player_reception_longest', 
+                'player_rush_longest', 'player_rush_reception_tds', 'player_rush_reception_yds',
+                'player_rush_yds', 'player_1st_td', 'player_anytime_td'
+            ],
+            'NBA': [
+                'player_points', 'player_rebounds', 'player_assists', 
+                'player_threes', 'player_blocks', 'player_steals', 
+                'player_points_rebounds', 'player_turnovers', 'player_points_assists', 
+                'player_rebounds_assists', 'player_first_basket'
+            ],
+            'NHL': [
+                'player_points', 'player_power_play_points', 'player_assists', 
+                'player_blocked_shots', 'player_shots_on_goal', 'player_goals', 
+                'player_total_saves', 'player_goal_scorer_first', 'player_goal_scorer_anytime'
+            ],
+            'MLB': [
+                'batter_home_runs', 'batter_hits', 'batter_total_bases', 
+                'batter_runs_scored', 'batter_hits_runs_rbis', 'pitcher_strikeouts', 
+                'pitcher_earned_runs', 'batter_rbis', 'batter_walks', 'batter_stolen_bases', 
+                'pitcher_hits_allowed', 'pitcher_outs', 'pitcher_walks'
+            ]
+        }
+
+        # Define sport mapping for API call
+        sport_mapping = {
+            'NFL': 'americanfootball_nfl',
+            'NBA': 'basketball_nba',
+            'NHL': 'icehockey_nhl',
+            'MLB': 'baseball_mlb'
+        }
 
         all_props = []
 
-        for event_id in event_id_list:
+        for event_id, sport_name, _, _, _ in all_event_details:
+            # Map sport_name to the correct sport key for API call
+            sport = sport_mapping.get(sport_name)
+            if not sport:
+                logger.warning(f"Unsupported sport: {sport_name}. Skipping event {event_id}.")
+                continue
+
+            # Determine the markets based on sport_name
+            markets = market_groups.get(sport_name, [])
+            if not markets:
+                logger.warning(f"No markets defined for sport: {sport_name}. Skipping event {event_id}.")
+                continue
+
+            markets_joined = ",".join(markets)
+
             try:
+                # Fetch props for the event
                 data = self._make_request(f'/v4/sports/{sport}/events/{event_id}/odds/', params={
                     'regions': 'us',
                     'markets': markets_joined,
@@ -146,14 +202,16 @@ class Odds_API:
                 if data:
                     # Collect the props data
                     all_props.append(data)
-                    logger.info(f"props for {event_id} successfully fetched")
+                    logger.info(f"Props for {event_id} (sport: {sport_name}) successfully fetched.")
                 else:
-                    logger.info(f"No data found for event {event_id}.")
+                    logger.info(f"No data found for event {event_id} (sport: {sport_name}).")
 
             except Exception as e:
-                logger.error(f"Failed to fetch props for event {event_id}: {e}")
-            
+                logger.error(f"Failed to fetch props for event {event_id} (sport: {sport_name}): {e}")
+
         return all_props
+
+
 
 # above done
 
@@ -165,28 +223,11 @@ class Odds_API:
 
 #### START OF API FILTERING
 
-# Below done
-    # def teams_and_gametime(self):
-    #     """Show away and home teams and game times."""
-    #     games = []
-    #     data = self.get_team_odds()
-
-    #     for sport in data:
-    #         game_ID = sport['id']
-    #         home_team = sport['home_team']
-    #         away_team = sport['away_team']
-    #         game_time = sport['commence_time']
-    #         game = (game_ID, home_team, away_team, game_time)
-    #         if game not in games:
-    #             games.append(game)
-
-    #     games_df = pd.DataFrame(games, columns=["Game_ID", "home_team", "away_team", "game_time"])
-    #     return games_df
-# above done
 
 # below done
     def bookies_and_odds(self):
         """Show bookies' odds across all upcoming games."""
+
         data = self.get_team_odds()
         game_lines = []
         game_spreads = []
@@ -198,6 +239,7 @@ class Odds_API:
                 game_ID = sport['id']
                 home_team = sport['home_team']
                 away_team = sport['away_team']
+                sport_type = sport['sport_key']
 
                 for bookmaker in sport['bookmakers']:
                     bookie = bookmaker['title']
@@ -217,7 +259,7 @@ class Odds_API:
                                 logger.info(f"game_spreads for {game_ID} successfully fetched")
                                 game_spreads.append((
                                     game_ID, bookie, matchup_type, spd_team1, spd_point1, spd_line1,
-                                    spd_team2, spd_point2, spd_line2, game_time, last_updated
+                                    spd_team2, spd_point2, spd_line2, game_time, last_updated, sport_type
                                 ))
                         elif matchup_type == 'h2h':
                             line_outcomes = market['outcomes']
@@ -229,7 +271,7 @@ class Odds_API:
                                 logger.info(f"game_lines for {game_ID} successfully fetched")
                                 game_lines.append((
                                     game_ID, bookie, matchup_type, h2h_team1, h2h_line1,
-                                    h2h_team2, h2h_line2, game_time, last_updated
+                                    h2h_team2, h2h_line2, game_time, last_updated, sport_type
                                 ))
                         elif matchup_type == 'totals':
                             totals_outcomes = market['outcomes']
@@ -245,7 +287,7 @@ class Odds_API:
                                     game_ID, bookie, matchup_type, home_team, away_team,
                                     over_or_under1, over_under_total1, over_under_line1,
                                     over_or_under2, over_under_total2, over_under_line2,
-                                    game_time, last_updated
+                                    game_time, last_updated, sport_type
                                 ))
         except Exception as e:
             logger.error(f"Failed to filter ML, Over/under, and spread data. Error: {e}")
@@ -256,7 +298,6 @@ class Odds_API:
 # above done
 
     def prop_bets_filters(self):
-
         props_data = self.get_props()
         all_prop_bets = []
 
@@ -266,6 +307,7 @@ class Odds_API:
                     pass
                 else:
                     game_id = data['id']
+                    sport_type = data['sport_key']
                     all_props = data['bookmakers']
                     for bookie_type in all_props:
                         bookie = bookie_type['key']
@@ -289,10 +331,14 @@ class Odds_API:
                                             name,
                                             description,
                                             price,
-                                            point
-                                ))       
+                                            point,
+                                            sport_type
+                                ))
+
         except Exception as e:
             logger.error(f"Failed to filter prop bets. Error: {e}")
+        length_of_props = len(all_prop_bets)
+        logger.info(f"number of rows being inserted: {length_of_props}")
         return all_prop_bets
 
     def filter_scores(self):

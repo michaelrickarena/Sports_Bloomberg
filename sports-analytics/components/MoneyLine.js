@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { ClipLoader } from "react-spinners";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -20,8 +21,17 @@ ChartJS.register(
   Tooltip
 );
 
+import {
+  formatTimestamp,
+  getColorForBookie,
+  groupGamesByDate,
+  generateBaseChartData,
+  generateChartOptions,
+} from "../utils/utils.js";
+
 const DropdownWithCharts = () => {
   const [games, setGames] = useState([]);
+  const [groupedGames, setGroupedGames] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedGameId, setSelectedGameId] = useState(null);
   const [moneylineData, setMoneylineData] = useState([]);
@@ -38,6 +48,7 @@ const DropdownWithCharts = () => {
         );
         const data = await response.json();
         setGames(data);
+        setGroupedGames(groupGamesByDate(data)); // Group the games here
         setLoading(false);
       } catch (error) {
         console.error("Error fetching games:", error);
@@ -103,17 +114,6 @@ const DropdownWithCharts = () => {
     }
   };
 
-  const formatTimestamp = (timestamp) => {
-    const date = new Date(timestamp);
-    const formattedDate = `${date.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-    })}, ${date.getHours() % 12 === 0 ? 12 : date.getHours() % 12}${
-      date.getMinutes() === 0 ? "" : ""
-    } ${date.getHours() < 12 ? "AM" : "PM"}`;
-    return formattedDate;
-  };
-
   const generateChartData = (teamKey) => {
     if (!moneylineData || moneylineData.length === 0) {
       return { labels: [], datasets: [] };
@@ -125,67 +125,19 @@ const DropdownWithCharts = () => {
     );
 
     const timestamps = [];
-    const bookieDataMap = {};
-
-    sortedData.forEach((entry) => {
-      const timestamp = formatTimestamp(entry.last_updated_timestamp);
-      if (!timestamps.includes(timestamp)) {
-        timestamps.push(timestamp);
-      }
-
-      if (!bookieDataMap[entry.bookie]) {
-        bookieDataMap[entry.bookie] = {
-          label: entry.bookie,
-          data: new Array(timestamps.length).fill(null),
-          borderColor: getColorForBookie(entry.bookie),
-          backgroundColor: getColorForBookie(entry.bookie), // Set fill color
-          fill: false,
-          tension: 0.1,
-          spanGaps: true,
-          pointHoverBackgroundColor: getColorForBookie(entry.bookie), // Highlight color
-          pointHoverBorderColor: getColorForBookie(entry.bookie),
-        };
-      }
-
-      const timestampIndex = timestamps.indexOf(timestamp);
-      if (timestampIndex !== -1) {
-        bookieDataMap[entry.bookie].data[timestampIndex] = entry[teamKey];
-      }
-    });
-
-    const filteredDatasets = Object.values(bookieDataMap).filter((item) =>
-      selectedBookies.includes(item.label)
+    const { datasets } = generateBaseChartData(
+      sortedData,
+      timestamps,
+      selectedBookies,
+      formatTimestamp,
+      getColorForBookie,
+      teamKey
     );
 
     return {
       labels: timestamps,
-      datasets: filteredDatasets,
-      options: {
-        responsive: true,
-        plugins: {
-          tooltip: {
-            backgroundColor: (context) =>
-              context.tooltipItems[0].dataset.borderColor, // Tooltip color matches line color
-            callbacks: {
-              title: (tooltipItem) => {
-                const tooltipIndex = tooltipItem[0].dataIndex;
-                const bookie = tooltipItem[0].dataset.label;
-                const lineValue = tooltipItem[0].dataset.data[tooltipIndex];
-                return `${bookie}: ${lineValue}`;
-              },
-            },
-          },
-        },
-        hover: {
-          mode: "nearest",
-          intersect: false,
-        },
-        elements: {
-          point: {
-            hoverBackgroundColor: (context) => context.hoverColor, // Match point hover
-          },
-        },
-      },
+      datasets: datasets,
+      options: generateChartOptions(),
     };
   };
 
@@ -201,25 +153,13 @@ const DropdownWithCharts = () => {
 
   const uniqueBookies = [...new Set(moneylineData.map((item) => item.bookie))];
 
-  const getColorForBookie = (bookie) => {
-    const colors = {
-      DraftKings: "#28a745",
-      FanDuel: "#F33711",
-      "MyBookie.ag": "#1e88e5",
-      BetRivers: "#EB6BE8",
-      Caesars: "#31DFF7",
-      BetMGM: "#8B1388",
-      "LowVig.ag": "#9A837E",
-      "BetOnline.ag": "#FCFC5A",
-      Bovada: "#000000",
-      BetUS: "#FFA500",
-    };
-
-    return colors[bookie] || "#000000"; // Default to black if bookie color is not defined
-  };
-
   if (loading) {
-    return <p>Loading games...</p>;
+    return (
+      <div style={{ textAlign: "center", marginTop: "20px" }}>
+        <ClipLoader size={100} color="#007bff" />
+        <p>Loading games...</p>
+      </div>
+    );
   }
 
   if (!games.length) {
@@ -230,19 +170,26 @@ const DropdownWithCharts = () => {
     <div>
       <h2>Select a Game Below</h2>
       <select onChange={handleGameSelect}>
-        <option value="">Select a game</option>
-        {games.map((game) => (
-          <option key={game.id} value={game.game_id}>
-            {game.home_team} vs. {game.away_team}
-          </option>
+        {Object.keys(groupedGames).map((date) => (
+          <optgroup key={date} label={date}>
+            {groupedGames[date].map((game) => (
+              <option key={game.game_id} value={game.game_id}>
+                {game.home_team} vs. {game.away_team}
+              </option>
+            ))}
+          </optgroup>
         ))}
       </select>
 
       {/* Render loading message when data is being fetched */}
-      {loadingData && <p>Loading data... This may take 30 seconds</p>}
+      {loadingData && (
+        <div style={{ textAlign: "center", marginTop: "20px" }}>
+          <ClipLoader size={100} color="#007bff" />
+          <p>Loading data... This may take 30 seconds</p>
+        </div>
+      )}
 
-      {/* Render checkboxes for bookies above the charts */}
-      {moneylineData.length > 0 && !loadingData && (
+      {!loadingData && moneylineData.length > 0 && (
         <div>
           <h3>Line Movements</h3>
           {/* Select Bookies section */}

@@ -5,6 +5,10 @@ import psycopg2
 import os
 from pathlib import Path
 import logging
+import io
+import traceback
+from psycopg2.extras import execute_batch
+
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +107,7 @@ class DB:
                         Line_2 INT NOT NULL,
                         event_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp for the event
                         last_updated_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp of last update
+                        sport_type TEXT NOT NULL,
                         FOREIGN KEY (game_ID) REFERENCES scores(game_ID) ON DELETE CASCADE
                     );
                     """
@@ -112,8 +117,34 @@ class DB:
         except Exception as e:
             logger.error(f"failed to create spreads table. Error: {e}", exc_info=True)
 
+    # def insert_NFL_spreads(self, spreads):
+    #     """Inserts provided list of tuples of spreads into DB
+
+    #     Args:
+    #     spreads (list of tuples): The list of tuples will have the following columns.
+    #             - 'game_ID': Unique ID from OddsAPI for a game/event
+    #             - 'Bookie': Name of one of 10 bookies included in OddsAPI
+    #             - 'Matchup_Type': Type of matchup needed for the bet
+    #             - 'Home_Team': Home Team
+    #             - 'Spread_1': Spread for the home team
+    #             - 'Line_1': Betting line for the home team spread
+    #             - 'Away_Team': Away Team
+    #             - 'Spread_2': Spread for the away team
+    #             - 'Line_2': Betting line for the away team spread
+    #             - 'event_timestamp': time of the game
+    #             - 'last_updated_timestamp': last time updated
+    #             - 'sport_type': the type of sport for this bet
+    #     """
+    #     try:
+    #         with self.conn.cursor() as cursor:
+    #             cursor.executemany("INSERT INTO spreads (game_ID, Bookie, Matchup_Type, Home_Team, Spread_1, Line_1, Away_Team, Spread_2, Line_2, event_timestamp, last_updated_timestamp, sport_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", spreads)
+    #         self.conn.commit()
+    #         logger.info("Successfully inserted data into NFL_spreads table")
+    #     except Exception as e:
+    #         logger.error(f"failed to insert data into NFL_spreads table. Error: {e}, data: {spreads}", exc_info=True)
+
     def insert_NFL_spreads(self, spreads):
-        """Inserts provided list of tuples of spreads into DB
+        """Inserts provided list of tuples of spreads into DB after verifying the game_ID exists in scores
 
         Args:
         spreads (list of tuples): The list of tuples will have the following columns.
@@ -128,14 +159,35 @@ class DB:
                 - 'Line_2': Betting line for the away team spread
                 - 'event_timestamp': time of the game
                 - 'last_updated_timestamp': last time updated
+                - 'sport_type': the type of sport for this bet
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.executemany("INSERT INTO spreads (game_ID, Bookie, Matchup_Type, Home_Team, Spread_1, Line_1, Away_Team, Spread_2, Line_2, event_timestamp, last_updated_timestamp) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", spreads)
+                for spread in spreads:
+                    game_id = spread[0]  # Assuming game_ID is the first element in each tuple
+
+                    # Check if game_ID exists in the 'scores' table
+                    cursor.execute("SELECT 1 FROM scores WHERE game_id = %s", (game_id,))
+                    if not cursor.fetchone():
+                        # If game_ID does not exist, log an error and skip this insert
+                        logger.error(f"Game ID {game_id} does not exist in scores. Skipping insertion for this game.")
+                        continue
+
+                    # If game_ID exists, proceed with the insert
+                    cursor.execute("""
+                        INSERT INTO spreads (
+                            game_ID, Bookie, Matchup_Type, Home_Team, Spread_1, Line_1, 
+                            Away_Team, Spread_2, Line_2, event_timestamp, last_updated_timestamp, sport_type
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, spread)
+                    logger.info(f"Game ID {game_id} succesfully inserted into latest spreads.")
+
             self.conn.commit()
-            logger.info("Successfully inserted data into NFL_spreads table")
+            logger.info("Successfully inserted data into spreads table")
         except Exception as e:
-            logger.error(f"failed to insert data into NFL_spreads table. Error: {e}, data: {spreads}", exc_info=True)
+            logger.error(f"Failed to insert data into spreads table. Error: {e}, data: {spreads}", exc_info=True)
+
+
 
 ###### END NFL SPREADS Create, insert, Get, Clear
 
@@ -159,6 +211,7 @@ class DB:
                         Line_2 INT NOT NULL,
                         event_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp for the event
                         last_updated_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp of last update
+                        sport_type TEXT NOT NULL,
                         FOREIGN KEY (game_ID) REFERENCES scores(game_ID) ON DELETE CASCADE
                     );
                     """
@@ -168,8 +221,9 @@ class DB:
         except Exception as e:
             logger.error(f"failed to create moneyline table. Error: {e}", exc_info=True)
 
+
     def insert_NFL_moneyline(self, moneyline):
-        """Inserts provided list of tuples of moneylines into DB
+        """Inserts provided list of tuples of moneylines into DB after verifying the game_ID exists in scores
 
         Args:
         moneylines (list of tuples): The list of tuples will have the following columns.
@@ -182,29 +236,59 @@ class DB:
                 - 'Line_2': Betting line for the away team Moneyline
                 - 'event_timestamp': time of the game
                 - 'last_updated_timestamp': last time updated
+                - 'sport_type': the type of sport for this bet
         """
-
         try:
             with self.conn.cursor() as cursor:
-                cursor.executemany("INSERT INTO moneyline (game_ID, Bookie, Matchup_Type, Home_Team, Line_1, Away_Team, Line_2, event_timestamp, last_updated_timestamp) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", moneyline)
+                for line in moneyline:
+                    game_id = line[0]  # Assuming game_ID is the first element in each tuple
+
+                    # Check if game_ID exists in the 'scores' table
+                    cursor.execute("SELECT 1 FROM scores WHERE game_id = %s", (game_id,))
+                    if not cursor.fetchone():
+                        # If game_ID does not exist, log an error and skip this insert
+                        logger.error(f"Game ID {game_id} does not exist in scores. Skipping insertion for this game.")
+                        continue
+
+                    # If game_ID exists, proceed with the insert
+                    cursor.execute("""
+                        INSERT INTO moneyline (
+                            game_ID, Bookie, Matchup_Type, Home_Team, Line_1, Away_Team, 
+                            Line_2, event_timestamp, last_updated_timestamp, sport_type
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, line)
+
             self.conn.commit()
             logger.info("Successfully inserted data into moneyline table")
         except Exception as e:
             logger.error(f"Failed to insert data into moneyline table. Error: {e}, data: {moneyline}", exc_info=True)
 
-    def get_moneyline_data(self):
-        """Fetch moneyline data from the database."""
-        query = """
-            SELECT game_ID, bookie, home_team, line_1, away_team, line_2, last_updated_timestamp
-            FROM moneyline
-            ORDER BY last_updated_timestamp;
-        """
-        with self.conn.cursor() as cursor:
-            cursor.execute(query)
-            data = cursor.fetchall()
-        return data
 
 
+    # def insert_NFL_moneyline(self, moneyline):
+    #     """Inserts provided list of tuples of moneylines into DB
+
+    #     Args:
+    #     moneylines (list of tuples): The list of tuples will have the following columns.
+    #             - 'game_ID': Unique ID from OddsAPI for a game/event
+    #             - 'Bookie': Name of one of 10 bookies included in OddsAPI
+    #             - 'Matchup_Type': Type of matchup needed for the bet
+    #             - 'Home_Team': Home Team
+    #             - 'Line_1': Betting line for the home team Moneyline
+    #             - 'Away_Team': Away Team
+    #             - 'Line_2': Betting line for the away team Moneyline
+    #             - 'event_timestamp': time of the game
+    #             - 'last_updated_timestamp': last time updated
+    #             - 'sport_type': the type of sport for this bet
+    #     """
+
+    #     try:
+    #         with self.conn.cursor() as cursor:
+    #             cursor.executemany("INSERT INTO moneyline (game_ID, Bookie, Matchup_Type, Home_Team, Line_1, Away_Team, Line_2, event_timestamp, last_updated_timestamp, sport_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", moneyline)
+    #         self.conn.commit()
+    #         logger.info("Successfully inserted data into moneyline table")
+    #     except Exception as e:
+    #         logger.error(f"Failed to insert data into moneyline table. Error: {e}, data: {moneyline}", exc_info=True)
 
 ### END NFL MoneyLine Create, insert, Get, Clear
 
@@ -232,6 +316,7 @@ class DB:
                         Over_Under_Line_2 INT NOT NULL,
                         event_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp for the event
                         last_updated_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp of last update
+                        sport_type TEXT NOT NULL,
                         FOREIGN KEY (game_ID) REFERENCES scores(game_ID) ON DELETE CASCADE
                     );
                     """
@@ -259,28 +344,51 @@ class DB:
                 - 'Over_Under_Line_2': betting line for total / over or under
                 - 'event_timestamp': time of the game
                 - 'last_updated_timestamp': last time updated
+                - 'sport_type': the type of sport for this bet
         """
         try:
             with self.conn.cursor() as cursor:
-                cursor.executemany("INSERT INTO overunder (game_ID, Bookie, Matchup_Type, Home_Team, Away_Team, Over_or_Under_1, Over_Under_Total_1, Over_Under_Line_1, Over_or_Under_2, Over_Under_Total_2, Over_Under_Line_2, event_timestamp, last_updated_timestamp) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", overunder)
-            self.conn.commit()
-            logger.info("Successfully inserted data into overunder table")
+                for line in overunder:
+                    # Check if the game_id exists in the scores table before inserting
+                    game_id = line[0]
+                    cursor.execute("SELECT 1 FROM scores WHERE game_id = %s", (game_id,))
+                    if cursor.fetchone():
+                        cursor.execute("INSERT INTO overunder (game_ID, Bookie, Matchup_Type, Home_Team, Away_Team, Over_or_Under_1, Over_Under_Total_1, Over_Under_Line_1, Over_or_Under_2, Over_Under_Total_2, Over_Under_Line_2, event_timestamp, last_updated_timestamp, sport_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", line)
+                    else:
+                        logger.error(f"Game ID {game_id} not found in scores table. Skipping insert.")
+                self.conn.commit()
+                logger.info("Successfully inserted data into overunder table")
         except Exception as e:
             logger.error(f"Failed to insert data into overunder table. Error: {e}, data: {overunder}", exc_info=True)
 
 
-    def get_overunder_data(self):
-        """Fetch moneyline data from the database."""
-        query = """
-            SELECT game_ID, bookie, home_team, line_1, away_team, line_2, last_updated_timestamp
-            FROM moneyline
-            ORDER BY last_updated_timestamp;
-        """
-        with self.conn.cursor() as cursor:
-            cursor.execute(query)
-            data = cursor.fetchall()
-        return data
+    # def insert_NFL_overunder(self, overunder):
+    #     """Inserts provided list of tuples of overunders into DB
 
+    #     Args:
+    #     overunder (list of tuples): The list of tuples will have the following columns.
+    #             - 'game_ID': Unique ID from OddsAPI for a game/event
+    #             - 'Bookie': Name of one of 10 bookies included in OddsAPI
+    #             - 'Matchup_Type': Type of matchup needed for the bet
+    #             - 'Home_Team': Home Team
+    #             - 'Away_Team': Away Team                
+    #             - 'Over_or_Under_1': Either "Over" or "Under"
+    #             - 'Over_Under_Total_1': total points scored for over or under
+    #             - 'Over_Under_Line_1': betting line for total / over or under
+    #             - 'Over_or_Under_2': Either "Over" or "Under"
+    #             - 'Over_Under_Total_2': total points scored for over or under
+    #             - 'Over_Under_Line_2': betting line for total / over or under
+    #             - 'event_timestamp': time of the game
+    #             - 'last_updated_timestamp': last time updated
+    #             - 'sport_type': the type of sport for this bet
+    #     """
+    #     try:
+    #         with self.conn.cursor() as cursor:
+    #             cursor.executemany("INSERT INTO overunder (game_ID, Bookie, Matchup_Type, Home_Team, Away_Team, Over_or_Under_1, Over_Under_Total_1, Over_Under_Line_1, Over_or_Under_2, Over_Under_Total_2, Over_Under_Line_2, event_timestamp, last_updated_timestamp, sport_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", overunder)
+    #         self.conn.commit()
+    #         logger.info("Successfully inserted data into overunder table")
+    #     except Exception as e:
+    #         logger.error(f"Failed to insert data into overunder table. Error: {e}, data: {overunder}", exc_info=True)
 
 ### END NFL Overunder Create, insert, Get, Clear
 
@@ -302,6 +410,7 @@ class DB:
                         Player_Name TEXT NOT NULL,
                         Betting_Line INT NOT NULL,
                         Betting_Point TEXT NOT NULL, -- this is text because it can either be N/A or a float. Easier to convert text of a float later on.
+                        sport_type TEXT NOT NULL,
                         FOREIGN KEY (game_ID) REFERENCES scores(game_ID) ON DELETE CASCADE
                     );
                     """
@@ -311,32 +420,373 @@ class DB:
         except Exception as e:
             logger.error(f"error creating props table. Error: {e}", exc_info=True)
 
+    def bulk_insert_with_copy_props(self, props):
+        """Fallback to bulk insert using INSERT statements for CockroachDB (for props table)."""
+        try:
+            with self.conn.cursor() as cursor:
+                query = """
+                    INSERT INTO props (
+                        game_id, last_updated_timestamp, bookie, prop_type,
+                        bet_type, player_name, betting_line, betting_point, sport_type
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                logger.debug("Executing batch INSERT query for props.")
+                execute_batch(cursor, query, props)
+                self.conn.commit()
+                logger.info(f"Successfully inserted {len(props)} rows into props using batch INSERT.")
+        except Exception as e:
+            logger.error(f"Batch INSERT for props failed. Error: {e}", exc_info=True)
+            logger.debug("Rolling back transaction for props.")
+            self.conn.rollback()
+            raise
 
-    def insert_NFL_props(self, props):
-        """Inserts provided list of tuples of props into DB
+    def insert_NFL_props(self, props, batch_size=1000):
+        """Inserts provided list of props into DB in batches."""
+        try:
+            logger.debug("Splitting data into batches for NFL props.")
+            # Split data into batches
+            batches = [props[i:i + batch_size] for i in range(0, len(props), batch_size)]
+
+            # Insert batches
+            for batch_index, batch in enumerate(batches):
+                try:
+                    logger.debug(f"Inserting batch {batch_index + 1} with {len(batch)} rows.")
+                    self.bulk_insert_with_copy_props(batch)  # Use the fallback bulk insert for props
+                    logger.info(f"Inserted batch {batch_index + 1} with {len(batch)} rows into props.")
+                except Exception as e:
+                    logger.error(f"Failed to insert batch {batch_index + 1}. Error: {e}", exc_info=True)
+                    raise
+
+            logger.info(f"Successfully inserted {len(props)} props into props table.")
+        except Exception as e:
+            logger.error(f"Error inserting data into props table. Full traceback:\n{traceback.format_exc()}")
+
+
+
+
+    # def insert_NFL_props(self, props):
+    #     """Inserts provided list of tuples of props into DB
+
+    #     Args:
+    #     props (list of tuples): The list of tuples will have the following columns.
+
+    #             - 'game_ID': Unique ID from OddsAPI for a game/event
+    #             - 'last_updated_timestamp': last time updated              
+    #             - 'Bookie': Name of one of 10 bookies included in OddsAPI
+    #             - 'Prop_Type': Type of prop bet being offered
+    #             - 'Bet_Type': "Yes", "over", or "under" given the prop_type
+    #             - 'Player_Name': name of player in the prop bet,
+    #             - 'Betting_Line': betting line for prop bet          
+    #             - 'Betting_Point': number of yards needed, tds, kicks, etc but N/A if not applicable. Ex. anytime TD would be NA
+    #             - 'sport_type': the type of sport for this bet  
+    #     """
+    #     try:
+    #         with self.conn.cursor() as cursor:
+    #             for prop in props:
+    #                 cursor.execute("INSERT INTO props (game_ID, last_updated_timestamp, Bookie, Prop_Type, Bet_Type, Player_Name, Betting_Line, Betting_Point, sport_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", prop)
+    #         self.conn.commit()
+    #         logger.info("Successfully inserted nfl props data into props table")
+    #     except Exception as e:
+    #         logger.error(f"Failed to insert nfl props data into props table. Error: {e}, data: {props}", exc_info=True)
+
+#### End NFL Props Create, insert, Get, Clear
+
+##### Same tables as insert and create above but will be refreshed with the latest API data
+
+    def create_latest_spreads(self):
+        """Creates spreads table in DB"""
+
+        try:
+
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS latest_spreads (
+                        id SERIAL PRIMARY KEY,
+                        game_ID VARCHAR(255),
+                        Bookie TEXT NOT NULL,
+                        Matchup_Type TEXT NOT NULL,
+                        Home_Team TEXT NOT NULL,
+                        Spread_1 FLOAT NOT NULL,
+                        Line_1 INT NOT NULL,
+                        Away_Team TEXT NOT NULL,
+                        Spread_2 FLOAT NOT NULL,
+                        Line_2 INT NOT NULL,
+                        event_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp for the event
+                        last_updated_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp of last update
+                        sport_type TEXT NOT NULL,
+                        FOREIGN KEY (game_ID) REFERENCES scores(game_ID) ON DELETE CASCADE
+                    );
+                    """
+                )
+            self.conn.commit()
+            logger.info("Successfully created spreads table or table already exists")
+        except Exception as e:
+            logger.error(f"failed to create spreads table. Error: {e}", exc_info=True)
+
+    def insert_latest_spreads(self, spreads):
+        """Inserts provided list of tuples of spreads into DB after verifying the game_ID exists in scores
 
         Args:
-        props (list of tuples): The list of tuples will have the following columns.
-
+        spreads (list of tuples): The list of tuples will have the following columns.
                 - 'game_ID': Unique ID from OddsAPI for a game/event
-                - 'last_updated_timestamp': last time updated              
                 - 'Bookie': Name of one of 10 bookies included in OddsAPI
-                - 'Prop_Type': Type of prop bet being offered
-                - 'Bet_Type': "Yes", "over", or "under" given the prop_type
-                - 'Player_Name': name of player in the prop bet,
-                - 'Betting_Line': betting line for prop bet          
-                - 'Betting_Point': number of yards needed, tds, kicks, etc but N/A if not applicable. Ex. anytime TD would be NA  
+                - 'Matchup_Type': Type of matchup needed for the bet
+                - 'Home_Team': Home Team
+                - 'Spread_1': Spread for the home team
+                - 'Line_1': Betting line for the home team spread
+                - 'Away_Team': Away Team
+                - 'Spread_2': Spread for the away team
+                - 'Line_2': Betting line for the away team spread
+                - 'event_timestamp': time of the game
+                - 'last_updated_timestamp': last time updated
+                - 'sport_type': the type of sport for this bet
         """
         try:
             with self.conn.cursor() as cursor:
-                for prop in props:
-                    cursor.execute("INSERT INTO props (game_ID, last_updated_timestamp, Bookie, Prop_Type, Bet_Type, Player_Name, Betting_Line, Betting_Point) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", prop)
-            self.conn.commit()
-            logger.info("Successfully inserted nfl props data into props table")
-        except Exception as e:
-            logger.error(f"Failed to insert nfl props data into props table. Error: {e}, data: {props}", exc_info=True)
+                for spread in spreads:
+                    game_id = spread[0]  # Assuming game_ID is the first element in each tuple
 
-#### End NFL Props Create, insert, Get, Clear
+                    # Check if game_ID exists in the 'scores' table
+                    cursor.execute("SELECT 1 FROM scores WHERE game_id = %s", (game_id,))
+                    if not cursor.fetchone():
+                        # If game_ID does not exist, log an error and skip this insert
+                        logger.error(f"Game ID {game_id} does not exist in scores. Skipping insertion for this game.")
+                        continue
+
+                    # If game_ID exists, proceed with the insert
+                    cursor.execute("""
+                        INSERT INTO latest_spreads (
+                            game_ID, Bookie, Matchup_Type, Home_Team, Spread_1, Line_1, 
+                            Away_Team, Spread_2, Line_2, event_timestamp, last_updated_timestamp, sport_type
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, spread)
+                    logger.info(f"Game ID {game_id} succesfully inserted into latest spreads.")
+
+            self.conn.commit()
+            logger.info("Successfully inserted data into latest_spreads table")
+        except Exception as e:
+            logger.error(f"Failed to insert data into latest_spreads table. Error: {e}, data: {spreads}", exc_info=True)
+
+
+###### END NFL SPREADS Create, insert, Get, Clear
+
+
+### START NFL MoneyLine Create, insert, Get, Clear
+    def create_latest_moneyline(self):
+        """Creates moneyline table in DB"""
+
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS latest_moneyline (
+                        id SERIAL PRIMARY KEY,
+                        game_ID VARCHAR(255),
+                        Bookie TEXT NOT NULL,
+                        Matchup_Type TEXT NOT NULL,
+                        Home_Team TEXT NOT NULL,
+                        Line_1 INT NOT NULL,
+                        Away_Team TEXT NOT NULL,
+                        Line_2 INT NOT NULL,
+                        event_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp for the event
+                        last_updated_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp of last update
+                        sport_type TEXT NOT NULL,
+                        FOREIGN KEY (game_ID) REFERENCES scores(game_ID) ON DELETE CASCADE
+                    );
+                    """
+                )
+            self.conn.commit()
+            logger.info("Successfully created latest_moneyline table or table already exists")
+        except Exception as e:
+            logger.error(f"failed to create latest_moneyline table. Error: {e}", exc_info=True)
+
+    def insert_latest_moneyline(self, moneyline):
+        """Inserts provided list of tuples of moneylines into DB after verifying the game_ID exists in scores
+
+        Args:
+        moneylines (list of tuples): The list of tuples will have the following columns.
+                - 'game_ID': Unique ID from OddsAPI for a game/event
+                - 'Bookie': Name of one of 10 bookies included in OddsAPI
+                - 'Matchup_Type': Type of matchup needed for the bet
+                - 'Home_Team': Home Team
+                - 'Line_1': Betting line for the home team Moneyline
+                - 'Away_Team': Away Team
+                - 'Line_2': Betting line for the away team Moneyline
+                - 'event_timestamp': time of the game
+                - 'last_updated_timestamp': last time updated
+                - 'sport_type': the type of sport for this bet
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                for line in moneyline:
+                    game_id = line[0]  # Assuming game_ID is the first element in each tuple
+
+                    # Check if game_ID exists in the 'scores' table
+                    cursor.execute("SELECT 1 FROM scores WHERE game_id = %s", (game_id,))
+                    if not cursor.fetchone():
+                        # If game_ID does not exist, log an error and skip this insert
+                        logger.error(f"Game ID {game_id} does not exist in scores. Skipping insertion for this game.")
+                        continue
+
+                    # If game_ID exists, proceed with the insert
+                    cursor.execute("""
+                        INSERT INTO latest_moneyline (
+                            game_ID, Bookie, Matchup_Type, Home_Team, Line_1, Away_Team, 
+                            Line_2, event_timestamp, last_updated_timestamp, sport_type
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, line)
+
+            self.conn.commit()
+            logger.info("Successfully inserted data into latest_moneyline table")
+        except Exception as e:
+            logger.error(f"Failed to insert data into latest_moneyline table. Error: {e}, data: {moneyline}", exc_info=True)
+
+
+### END NFL MoneyLine Create, insert, Get, Clear
+
+
+### START NFL Overunder Create, insert, Get, Clear
+    def create_latest_overunder(self):
+        """ Creates overunder table in DB """
+
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS latest_overunder (
+                        id SERIAL PRIMARY KEY,
+                        game_ID VARCHAR(255),
+                        Bookie TEXT NOT NULL,
+                        Matchup_Type TEXT NOT NULL,
+                        Home_Team TEXT NOT NULL,
+                        Away_Team TEXT NOT NULL,
+                        Over_or_Under_1 TEXT NOT NULL,
+                        Over_Under_Total_1 FLOAT NOT NULL,
+                        Over_Under_Line_1 INT NOT NULL,
+                        Over_or_Under_2 TEXT NOT NULL,
+                        Over_Under_Total_2 FLOAT NOT NULL,
+                        Over_Under_Line_2 INT NOT NULL,
+                        event_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp for the event
+                        last_updated_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp of last update
+                        sport_type TEXT NOT NULL,
+                        FOREIGN KEY (game_ID) REFERENCES scores(game_ID) ON DELETE CASCADE
+                    );
+                    """
+                )
+            self.conn.commit()
+            logger.info("Successfully created latest_overunder table or table already exists")
+        except Exception as e:
+            logger.error(f"Failed to create latest_overunder table. Error: {e}", exc_info=True)
+
+    def insert_latest_overunder(self, overunder):
+        """Inserts provided list of tuples of overunders into DB
+
+        Args:
+        overunder (list of tuples): The list of tuples will have the following columns.
+                - 'game_ID': Unique ID from OddsAPI for a game/event
+                - 'Bookie': Name of one of 10 bookies included in OddsAPI
+                - 'Matchup_Type': Type of matchup needed for the bet
+                - 'Home_Team': Home Team
+                - 'Away_Team': Away Team                
+                - 'Over_or_Under_1': Either "Over" or "Under"
+                - 'Over_Under_Total_1': total points scored for over or under
+                - 'Over_Under_Line_1': betting line for total / over or under
+                - 'Over_or_Under_2': Either "Over" or "Under"
+                - 'Over_Under_Total_2': total points scored for over or under
+                - 'Over_Under_Line_2': betting line for total / over or under
+                - 'event_timestamp': time of the game
+                - 'last_updated_timestamp': last time updated
+                - 'sport_type': the type of sport for this bet
+        """
+        try:
+            with self.conn.cursor() as cursor:
+                for line in overunder:
+                    # Check if the game_id exists in the scores table before inserting
+                    game_id = line[0]
+                    cursor.execute("SELECT 1 FROM scores WHERE game_id = %s", (game_id,))
+                    if cursor.fetchone():
+                        cursor.execute("INSERT INTO latest_overunder (game_ID, Bookie, Matchup_Type, Home_Team, Away_Team, Over_or_Under_1, Over_Under_Total_1, Over_Under_Line_1, Over_or_Under_2, Over_Under_Total_2, Over_Under_Line_2, event_timestamp, last_updated_timestamp, sport_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", line)
+                    else:
+                        logger.error(f"Game ID {game_id} not found in scores table. Skipping insert.")
+                self.conn.commit()
+                logger.info("Successfully inserted data into latest_overunder table")
+        except Exception as e:
+            logger.error(f"Failed to insert data into latest_overunder table. Error: {e}, data: {overunder}", exc_info=True)
+
+
+### END NFL Overunder Create, insert, Get, Clear
+
+### START NFL Props Create, insert, Get, Clear
+    def create_latest_props(self):
+        """ Creates props table in DB """
+
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS latest_props (
+                        id SERIAL PRIMARY KEY,
+                        game_ID VARCHAR(255),
+                        last_updated_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp of last update              
+                        Bookie TEXT NOT NULL,
+                        Prop_Type TEXT NOT NULL,
+                        Bet_Type TEXT NOT NULL,
+                        Player_Name TEXT NOT NULL,
+                        Betting_Line INT NOT NULL,
+                        Betting_Point TEXT NOT NULL, -- this is text because it can either be N/A or a float. Easier to convert text of a float later on.
+                        sport_type TEXT NOT NULL,
+                        FOREIGN KEY (game_ID) REFERENCES scores(game_ID) ON DELETE CASCADE
+                    );
+                    """
+                )
+            self.conn.commit()
+            logger.info("Successfully created latest_props table or table already exists")
+        except Exception as e:
+            logger.error(f"error creating latest_props table. Error: {e}", exc_info=True)
+
+    def bulk_insert_with_copy_latest_props(self, props):
+            """Fallback to bulk insert using INSERT statements for CockroachDB."""
+            try:
+                with self.conn.cursor() as cursor:
+                    query = """
+                        INSERT INTO latest_props (
+                            game_id, last_updated_timestamp, bookie, prop_type,
+                            bet_type, player_name, betting_line, betting_point, sport_type
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """
+                    logger.debug("Executing batch INSERT query.")
+                    execute_batch(cursor, query, props)
+                    self.conn.commit()
+                    logger.info(f"Successfully inserted {len(props)} rows into latest_props using batch INSERT.")
+            except Exception as e:
+                logger.error(f"Batch INSERT failed. Error: {e}", exc_info=True)
+                logger.debug("Rolling back transaction.")
+                self.conn.rollback()
+                raise
+
+    def insert_latest_props(self, props, batch_size=1000):
+        """Inserts provided list of props into DB in batches."""
+        try:
+            logger.debug("Splitting data into batches.")
+            # Split data into batches
+            batches = [props[i:i + batch_size] for i in range(0, len(props), batch_size)]
+
+            # Insert batches
+            for batch_index, batch in enumerate(batches):
+                try:
+                    logger.debug(f"Inserting batch {batch_index + 1} with {len(batch)} rows.")
+                    self.bulk_insert_with_copy_latest_props(batch)  # Use the fallback bulk insert
+                    logger.info(f"Inserted batch {batch_index + 1} with {len(batch)} rows.")
+                except Exception as e:
+                    logger.error(f"Failed to insert batch {batch_index + 1}. Error: {e}", exc_info=True)
+                    raise
+
+            logger.info(f"Successfully inserted {len(props)} props into latest_props table.")
+        except Exception as e:
+            logger.error(f"Error inserting data into latest_props table. Full traceback:\n{traceback.format_exc()}")
+
+##### Same tables as insert and create above but will be refreshed with the latest API data
 
 
 #### START NFL Scores Create, insert, Get, Clear
@@ -488,11 +938,17 @@ class DB:
 
     ### truncate data from table
     def truncate_table(self, table: str) -> None:
-        """Truncates a specified table in the database.
+        """Truncates a specified table in the database, with validation.
 
         Args:
             table (str): The name of the table to truncate.
         """
+        VALID_TABLES = ['upcoming_games', 'latest_spreads', 'latest_moneyline', 'latest_overunder', 'latest_props']
+
+        if table not in VALID_TABLES:
+            logger.error(f"Invalid table name: {table}. Truncate operation aborted.")
+            raise ValueError(f"Invalid table name: {table}")
+
         try:
             with self.conn.cursor() as cursor:
                 cursor.execute(f"TRUNCATE TABLE {table};")
