@@ -176,6 +176,7 @@ class Moneyline(models.Model):
     line_2 = models.BigIntegerField()
     event_timestamp = models.DateTimeField()
     last_updated_timestamp = models.DateTimeField()
+    sport_type = models.TextField()
 
     class Meta:
         managed = False
@@ -198,6 +199,7 @@ class Overunder(models.Model):
     over_under_line_2 = models.BigIntegerField()
     event_timestamp = models.DateTimeField()
     last_updated_timestamp = models.DateTimeField()
+    sport_type = models.TextField()
 
     class Meta:
         managed = False
@@ -214,11 +216,135 @@ class Props(models.Model):
     player_name = models.TextField()
     betting_line = models.BigIntegerField()
     betting_point = models.TextField()
+    sport_type = models.TextField()
 
     class Meta:
         managed = False
         db_table = 'props'
 
+class Spreads(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    game = models.ForeignKey('Scores', models.DO_NOTHING, to_field='game_id', blank=True, null=True)
+    bookie = models.TextField()
+    matchup_type = models.TextField()
+    home_team = models.TextField()
+    spread_1 = models.FloatField()
+    line_1 = models.BigIntegerField()
+    away_team = models.TextField()
+    spread_2 = models.FloatField()
+    line_2 = models.BigIntegerField()
+    event_timestamp = models.DateTimeField()
+    last_updated_timestamp = models.DateTimeField()
+    sport_type = models.TextField()
+
+    class Meta:
+        managed = False
+        db_table = 'spreads'
+
+
+class latest_Moneyline(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    game = models.ForeignKey('Scores', models.DO_NOTHING, to_field='game_id', blank=True, null=True)
+    bookie = models.TextField()
+    matchup_type = models.TextField()
+    home_team = models.TextField()
+    line_1 = models.BigIntegerField()
+    away_team = models.TextField()
+    line_2 = models.BigIntegerField()
+    event_timestamp = models.DateTimeField()
+    last_updated_timestamp = models.DateTimeField()
+    sport_type = models.TextField()
+
+    class Meta:
+        managed = False
+        db_table = 'latest_moneyline'
+
+
+
+class latest_Overunder(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    game = models.ForeignKey('Scores', models.DO_NOTHING, to_field='game_id', blank=True, null=True)
+    bookie = models.TextField()
+    matchup_type = models.TextField()
+    home_team = models.TextField()
+    away_team = models.TextField()
+    over_or_under_1 = models.TextField()
+    over_under_total_1 = models.FloatField()
+    over_under_line_1 = models.BigIntegerField()
+    over_or_under_2 = models.TextField()
+    over_under_total_2 = models.FloatField()
+    over_under_line_2 = models.BigIntegerField()
+    event_timestamp = models.DateTimeField()
+    last_updated_timestamp = models.DateTimeField()
+    sport_type = models.TextField()
+
+    class Meta:
+        managed = False
+        db_table = 'latest_overunder'
+
+
+class latest_Props(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    game = models.ForeignKey('Scores', models.DO_NOTHING, to_field='game_id', blank=True, null=True)
+    last_updated_timestamp = models.DateTimeField()
+    bookie = models.TextField()
+    prop_type = models.TextField()
+    bet_type = models.TextField()
+    player_name = models.TextField()
+    betting_line = models.BigIntegerField()
+    betting_point = models.TextField()
+    sport_type = models.TextField()
+
+    class Meta:
+        managed = False
+        db_table = 'latest_props'
+
+class latest_Spreads(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    game = models.ForeignKey('Scores', models.DO_NOTHING, to_field='game_id', blank=True, null=True)
+    bookie = models.TextField()
+    matchup_type = models.TextField()
+    home_team = models.TextField()
+    spread_1 = models.FloatField()
+    line_1 = models.BigIntegerField()
+    away_team = models.TextField()
+    spread_2 = models.FloatField()
+    line_2 = models.BigIntegerField()
+    event_timestamp = models.DateTimeField()
+    last_updated_timestamp = models.DateTimeField()
+    sport_type = models.TextField()
+
+    class Meta:
+        managed = False
+        db_table = 'latest_spreads'
+
+
+class DistinctProps(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    player_name = models.CharField(max_length=255)
+    game_id = models.CharField(max_length=255)
+    sport_type = models.CharField(max_length=255)
+    last_updated = models.DateTimeField(auto_now=True)  # Tracks the last update time
+
+    class Meta:
+        unique_together = ('player_name', 'game_id', 'sport_type')  # Ensure uniqueness across player_name, game_ID, and sport_type
+        db_table = 'distinct_props'
+       
+
+    def __str__(self):
+        return f"{self.player_name} - {self.game_id} - {self.sport_type}"
+
+class UpcomingGames(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    game_id = models.CharField(max_length=255, blank=True, null=True)
+    sport_title = models.TextField()
+    event_timestamp = models.DateTimeField()
+    home_team = models.TextField()
+    away_team = models.TextField()
+
+    class Meta:
+        managed = False
+        db_table = 'upcoming_games'
 
 class Scores(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -235,34 +361,3 @@ class Scores(models.Model):
     class Meta:
         managed = False
         db_table = 'scores'
-
-class Spreads(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    game = models.ForeignKey(Scores, models.DO_NOTHING, to_field='game_id', blank=True, null=True)
-    bookie = models.TextField()
-    matchup_type = models.TextField()
-    home_team = models.TextField()
-    spread_1 = models.FloatField()
-    line_1 = models.BigIntegerField()
-    away_team = models.TextField()
-    spread_2 = models.FloatField()
-    line_2 = models.BigIntegerField()
-    event_timestamp = models.DateTimeField()
-    last_updated_timestamp = models.DateTimeField()
-
-    class Meta:
-        managed = False
-        db_table = 'spreads'
-
-
-class UpcomingGames(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    game_id = models.CharField(max_length=255, blank=True, null=True)
-    sport_title = models.TextField()
-    event_timestamp = models.DateTimeField()
-    home_team = models.TextField()
-    away_team = models.TextField()
-
-    class Meta:
-        managed = False
-        db_table = 'upcoming_games'

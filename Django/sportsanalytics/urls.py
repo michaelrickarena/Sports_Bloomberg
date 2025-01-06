@@ -16,7 +16,11 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from sports.views import MoneylineListView, MoneylineChartDataView, OverunderListView, PropsListView, ScoresListView, SpreadsListView, UpcomingGamesListView
+from sports.views import (
+    MoneylineListView, MoneylineChartDataView, OverunderListView, PropsListView, ScoresListView, 
+    SpreadsListView, UpcomingGamesListView, OverunderChartDataView, PropsChartDataView, SpreadsChartDataView, 
+    latest_MoneylineListView, latest_OverunderListView, latest_PropsListView, latest_SpreadsListView, DistinctPropsListView
+)
 from django.http import HttpResponse
 
 # Define the homepage view
@@ -24,17 +28,28 @@ def homepage(request):
     return HttpResponse("Welcome to the Sports Analytics API!")
 
 urlpatterns = [
-    path('', homepage, name='home'),  # This adds a view for the root path
+    path('', homepage, name='home'),  # Root path for the homepage
     path('admin/', admin.site.urls),
+
+    # List Views
     path("api/moneyline/", MoneylineListView.as_view(), name="moneyline-list"),
-    path(
-        "api/moneyline/chart/<int:game_id>/",
-        MoneylineChartDataView.as_view(),
-        name="moneyline-chart-data",
-    ),
     path('api/overunder/', OverunderListView.as_view(), name='overunder_list'),
     path('api/props/', PropsListView.as_view(), name='props_list'),
     path('api/scores/', ScoresListView.as_view(), name='scores_list'),
     path('api/spreads/', SpreadsListView.as_view(), name='spreads_list'),
     path('api/upcoming_games/', UpcomingGamesListView.as_view(), name='upcoming_games_list'),
+    path('api/distinct_props/', DistinctPropsListView.as_view(), name='distinct_props_list'),
+
+    # Chart Data Views
+    path("api/moneyline/chart/", MoneylineChartDataView.as_view(), name="moneyline-chart-data"),
+    path("api/overunder/chart/", OverunderChartDataView.as_view(), name="overunder-chart-data"),
+    path("api/props/chart/", PropsChartDataView.as_view(), name="props-chart-data"),
+    path("api/spreads/chart/", SpreadsChartDataView.as_view(), name="spreads-chart-data"),
+
+    # Additional Paths for latest data (if needed)
+    path('api/latest_moneyline/', latest_MoneylineListView.as_view(), name='latest_moneyline_list'),
+    path('api/latest_overunder/', latest_OverunderListView.as_view(), name='latest_overunder_list'),
+    path('api/latest_props/', latest_PropsListView.as_view(), name='latest_props_list'),
+    path('api/latest_spreads/', latest_SpreadsListView.as_view(), name='latest_spreads_list'),
 ]
+
