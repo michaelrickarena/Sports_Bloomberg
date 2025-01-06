@@ -32,6 +32,7 @@ def lambda_handler(event=None, context=None):
         db.create_latest_moneyline()
         db.create_latest_spreads()
         db.create_latest_overunder()
+        db.create_distinct_props()
     
         # API Usage from Odds API
         all_game_results = odds_api.filter_scores()
@@ -63,6 +64,9 @@ def lambda_handler(event=None, context=None):
         db.insert_NFL_moneyline(game_lines)
         db.insert_NFL_overunder(game_totals)
         db.insert_NFL_props(all_prop_bets)
+
+        #update unique players in distinct props
+        db.update_distinct_props()
 
         # this triggers delete on cascade to only have most recent events
         try:

@@ -1,0 +1,61 @@
+.table-container {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap; /* Allows tables to wrap if needed on smaller screens */
+  margin: 20px;
+  padding-bottom: 50px;
+}
+
+.table-item {
+  display: flex;
+  flex-direction: column;
+  width: 47%; /* Adjust to control how much space each table occupies */
+}
+
+h3 {
+  font-size: 1.5rem;
+  color: #333;
+  margin-bottom: 10px;
+  width: 100%; /* Ensures the heading takes up the full width of the container */
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1px;
+}
+
+th,
+td {
+  padding: 5px;
+  text-align: left;
+  border: 1px solid #333;
+}
+
+th {
+  background-color: #f4f4f4;
+  cursor: pointer;
+}
+
+th:hover {
+  background-color: #e9e9e9;
+}
+
+tbody tr:nth-child(even) {
+  background-color: #e0e9ea;
+}
+
+tbody tr:hover {
+  background-color: #f1f1f1;
+}
+
+td {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+td:last-child {
+  font-size: 0.8rem;
+  color: #999;
+}

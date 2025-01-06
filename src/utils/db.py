@@ -461,6 +461,61 @@ class DB:
         except Exception as e:
             logger.error(f"Error inserting data into props table. Full traceback:\n{traceback.format_exc()}")
 
+    def create_distinct_props(self):
+        """ Creates distinct props table in DB """
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS distinct_props (
+                        id SERIAL PRIMARY KEY,
+                        player_name TEXT NOT NULL,
+                        game_ID VARCHAR(255) NOT NULL,  -- Game ID added
+                        sport_type TEXT NOT NULL,
+                        last_updated TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,  -- Track when this entry was last updated
+                        UNIQUE(player_name, game_ID, sport_type)  -- Ensure uniqueness across player, game, and sport type
+                    );
+                    """
+                )
+            self.conn.commit()
+            logger.info("Successfully created distinct_props table or table already exists")
+        except Exception as e:
+            logger.error(f"Error creating distinct_props table. Error: {e}", exc_info=True)
+
+
+    def update_distinct_props(self):
+        """ Update distinct_props table with unique values from the main props table """
+        try:
+            with self.conn.cursor() as cursor:
+                # Delete players who no longer have props
+                cursor.execute("""
+                    DELETE FROM distinct_props
+                    WHERE (player_name, game_ID, sport_type) NOT IN (
+                        SELECT DISTINCT player_name, game_ID, sport_type
+                        FROM props
+                    );
+                """)
+
+                # Insert/update players who currently have props bets into the distinct_props table
+                cursor.execute("""
+                    INSERT INTO distinct_props (player_name, game_ID, sport_type)
+                    SELECT DISTINCT player_name, game_ID, sport_type
+                    FROM props
+                    ON CONFLICT (player_name, game_ID, sport_type) DO UPDATE
+                    SET last_updated = CURRENT_TIMESTAMP;
+                """)
+            self.conn.commit()
+            logger.info("Successfully updated distinct_props table.")
+        except Exception as e:
+            logger.error(f"Error updating distinct_props table. Error: {e}", exc_info=True)
+
+
+
+    # Clean up the distinct_props table by removing players who no longer have props bets
+
+
+    # You could schedule this function to run periodically using Celery or a cron job.
+
 
 
 

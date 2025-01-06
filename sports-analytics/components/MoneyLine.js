@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { ClipLoader } from "react-spinners";
 import { Line } from "react-chartjs-2";
+import LatestMoneylineTable from "./LatestMoneylineTable";
 import {
   Chart as ChartJS,
   LineElement,
@@ -43,8 +44,9 @@ const DropdownWithCharts = () => {
   useEffect(() => {
     const fetchGames = async () => {
       try {
+        const sportTitle = "NFL";
         const response = await fetch(
-          "http://127.0.0.1:8000/api/upcoming_games/"
+          `http://127.0.0.1:8000/api/upcoming_games/?sport_title=${sportTitle}`
         );
         const data = await response.json();
         setGames(data);
@@ -76,6 +78,8 @@ const DropdownWithCharts = () => {
       try {
         const controller = new AbortController();
         setAbortController(controller);
+
+        const sportType = "americanfootball_nfl";
 
         let nextUrl = `http://127.0.0.1:8000/api/moneyline/?game_id=${gameId}`;
         let allMoneylineData = [];
@@ -188,6 +192,9 @@ const DropdownWithCharts = () => {
           <p>Loading data... This may take 30 seconds</p>
         </div>
       )}
+
+      {/* Render the LatestMoneylineTable component */}
+      <LatestMoneylineTable gameId={selectedGameId} />
 
       {!loadingData && moneylineData.length > 0 && (
         <div>
