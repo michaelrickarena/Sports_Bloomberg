@@ -102,22 +102,19 @@ class SpreadsListView(APIView):
 
 class PropsListView(APIView):
     def get(self, request):
-        game_id = request.query_params.get('game_id')
-        sport_type = request.query_params.get('sport_type')
         player_name = request.query_params.get('player_name')
+        prop_type = request.query_params.get('prop_type')  # Added prop_type parameter
         page_number = request.query_params.get('page', 1)
-        cache_key = f'props_data_{game_id}_{sport_type}_{player_name}_page_{page_number}'
+        cache_key = f'props_data_{player_name}_{prop_type}_page_{page_number}'  # Updated cache key
 
         # Check cache first
         data = cache.get(cache_key)
         if not data:
             filters = {}
-            if game_id:
-                filters['game_id'] = game_id
-            if sport_type:
-                filters['sport_type'] = sport_type
             if player_name:
                 filters['player_name__icontains'] = player_name  # Partial match for player name
+            if prop_type:
+                filters['prop_type'] = prop_type  # Filter by prop_type
 
             # Fetch filtered props
             props = Props.objects.filter(**filters).order_by('last_updated_timestamp')
@@ -268,14 +265,24 @@ class SpreadsChartDataView(APIView):
 
 class DistinctPropsListView(APIView):
     def get(self, request):
-        # Query the DistinctProps model to get all distinct entries
-        distinct_props = DistinctProps.objects.all()
+        sport_type = request.query_params.get('sport_type', None)  # Get sport_type from query params
+        
+        # Filter by sport_type if provided, otherwise return all results
+        if sport_type:
+            distinct_props = DistinctProps.objects.filter(sport_type=sport_type)
+        else:
+            distinct_props = DistinctProps.objects.all()
+
+        # Paginate the results
         paginator = PageNumberPagination()
         paginator.page_size = 100  # Adjust the number of results per page
         result_page = paginator.paginate_queryset(distinct_props, request)
-        serializer = DistinctPropsSerializer(result_page, many=True)
-        return paginator.get_paginated_response(serializer.data)
 
+        # Serialize the filtered results
+        serializer = DistinctPropsSerializer(result_page, many=True)
+        
+        # Return the paginated response
+        return paginator.get_paginated_response(serializer.data)
 
 
 class ScoresListView(APIView):
@@ -331,7 +338,15 @@ class latest_MoneylineListView(APIView):
                 {"error": "game_id is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # Check if the data is cached
+        cache_key = f"latest_moneyline_{game_id}"
+        cached_data = cache.get(cache_key)
         
+        if cached_data:
+            # Return cached data if available
+            return Response(cached_data)
+
         # Filter the latest_moneyline table by game_id
         latest_moneyline = latest_Moneyline.objects.filter(game=game_id)[:10]  # Limit to 10 results
 
@@ -339,40 +354,94 @@ class latest_MoneylineListView(APIView):
         paginator = PageNumberPagination()
         paginator.page_size = 100
         result_page = paginator.paginate_queryset(latest_moneyline, request)
-        
+
         # Serialize the results
         serializer = latest_MoneylineSerializer(result_page, many=True)
+
+        # Cache the result for 10 minutes
+        cache.set(cache_key, serializer.data, timeout=600)
 
         # Return the paginated response
         return paginator.get_paginated_response(serializer.data)
 
-
 class latest_OverunderListView(APIView):
     def get(self, request):
-        latest_overunders = latest_Overunder.objects.all()
+        # Get game_id from query parameters
+        game_id = request.query_params.get("game_id")
+        
+        # Check if game_id is provided and filter the latest_Overunder table accordingly
+        if game_id:
+            latest_overunders = latest_Overunder.objects.filter(game=game_id)
+        else:
+            latest_overunders = latest_Overunder.objects.all()
+        
+        # Paginate the results
         paginator = PageNumberPagination()
         paginator.page_size = 250  # Limit the number of results per page
         result_page = paginator.paginate_queryset(latest_overunders, request)
+        
+        # Serialize the results
         serializer = latest_OverunderSerializer(result_page, many=True)
+        
+        # Return the paginated response
         return paginator.get_paginated_response(serializer.data)
 
 
 class latest_PropsListView(APIView):
     def get(self, request):
-        latest_props = latest_Props.objects.all()
+        # Get query parameters
+        player_name = request.query_params.get('player_name', None)
+        prop_type = request.query_params.get('prop_type', None)
+
+        # Ensure player_name is provided
+        if not player_name:
+            return Response({"error": "player_name parameter is required"}, status=400)
+
+        # Filter by player_name
+        latest_props = latest_Props.objects.filter(player_name__icontains=player_name)
+
+        # If prop_type is provided, filter further by prop_type
+        if prop_type:
+            latest_props = latest_props.filter(prop_type__icontains=prop_type)
+
+            # Return all rows (full details) if both filters are applied
+            serializer = latest_PropsSerializer(latest_props, many=True)
+            return Response(serializer.data)
+
+        # If only player_name is provided, return unique prop_types
+        unique_prop_types = latest_props.values_list('prop_type', flat=True).distinct()
+
+        # Paginate the results
         paginator = PageNumberPagination()
-        paginator.page_size = 100  # Limit the number of results per page
-        result_page = paginator.paginate_queryset(latest_props, request)
-        serializer = latest_PropsSerializer(result_page, many=True)
-        return paginator.get_paginated_response(serializer.data)
+        paginator.page_size = 100
+        result_page = paginator.paginate_queryset(unique_prop_types, request)
+
+        # Return the paginated response
+        return paginator.get_paginated_response(result_page)
+
+
 
 class latest_SpreadsListView(APIView):
     def get(self, request):
-        latest_spreads = latest_Spreads.objects.all()
+        # Get game_id from query parameters
+        game_id = request.query_params.get("game_id")
+        
+        # Check if game_id is provided and filter the latest_Spreads table accordingly
+        if game_id:
+            latest_spreads = latest_Spreads.objects.filter(game=game_id)
+        else:
+            latest_spreads = latest_Spreads.objects.all()
+        
+        # Paginate the results
         paginator = PageNumberPagination()
         paginator.page_size = 250  # Limit the number of results per page
         result_page = paginator.paginate_queryset(latest_spreads, request)
+        
+        # Serialize the results
         serializer = latest_SpreadsSerializer(result_page, many=True)
+        
+        # Return the paginated response
         return paginator.get_paginated_response(serializer.data)
+
 
 # LATEST MONEYLINE NEEDED
