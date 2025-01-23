@@ -5,7 +5,7 @@ import "../../styles/globals.css"; // Global styles if needed
 export default function PlayerPropsPage() {
   return (
     <main>
-      <PlayerProps />
+      <PlayerProps sportType="baseball_mlb" />
     </main>
   );
 }

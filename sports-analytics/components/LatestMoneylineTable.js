@@ -3,7 +3,14 @@
 import React, { useState, useEffect } from "react";
 import "../styles/LatestMoneylineTable.css"; // Import the CSS file
 
-const LatestMoneylineTable = ({ gameId }) => {
+const LatestMoneylineTable = ({
+  gameId,
+  endpoint,
+  line1,
+  line2,
+  home_team,
+  away_team,
+}) => {
   const [latestMoneylineData, setLatestMoneylineData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sortOrderHome, setSortOrderHome] = useState("ASC"); // Track sort order for home team
@@ -16,7 +23,7 @@ const LatestMoneylineTable = ({ gameId }) => {
       setLoading(true);
       try {
         const response = await fetch(
-          `http://127.0.0.1:8000/api/latest_moneyline/?game_id=${gameId}`
+          `http://127.0.0.1:8000/api/${endpoint}/?game_id=${gameId}`
         );
         const data = await response.json();
         setLatestMoneylineData(data.results || []);
@@ -28,7 +35,7 @@ const LatestMoneylineTable = ({ gameId }) => {
     };
 
     fetchLatestMoneyline();
-  }, [gameId]);
+  }, [gameId, endpoint]);
 
   if (!gameId) {
     return <p>Please select a game to view moneyline data.</p>;
@@ -37,8 +44,8 @@ const LatestMoneylineTable = ({ gameId }) => {
   // Home team data and sorting logic
   const homeTeamData = latestMoneylineData.map((row) => ({
     bookie: row.bookie,
-    team: row.home_team,
-    line: row.line_1,
+    team: row[home_team],
+    line: row[line1],
     lastUpdated: row.last_updated_timestamp,
   }));
 
@@ -50,8 +57,8 @@ const LatestMoneylineTable = ({ gameId }) => {
   // Away team data and sorting logic
   const awayTeamData = latestMoneylineData.map((row) => ({
     bookie: row.bookie,
-    team: row.away_team,
-    line: row.line_2,
+    team: row[away_team],
+    line: row[line2],
     lastUpdated: row.last_updated_timestamp,
   }));
 
@@ -73,7 +80,7 @@ const LatestMoneylineTable = ({ gameId }) => {
   return (
     <div>
       {loading ? (
-        <p>Loading latest moneyline data...</p>
+        <p>Loading latest data...</p>
       ) : (
         <div className="table-container">
           {/* Home Team Table */}
@@ -85,7 +92,7 @@ const LatestMoneylineTable = ({ gameId }) => {
                   <th>Bookie</th>
                   <th>Home Team</th>
                   <th onClick={toggleSortHome}>
-                    Home Team Line {sortOrderHome === "ASC" ? "↑" : "↓"}
+                    Payout Line {sortOrderHome === "ASC" ? "↑" : "↓"}
                   </th>
                   <th>Last Updated</th>
                 </tr>
@@ -112,7 +119,7 @@ const LatestMoneylineTable = ({ gameId }) => {
                   <th>Bookie</th>
                   <th>Away Team</th>
                   <th onClick={toggleSortAway}>
-                    Away Team Line {sortOrderAway === "ASC" ? "↑" : "↓"}
+                    Payout Line {sortOrderAway === "ASC" ? "↑" : "↓"}
                   </th>
                   <th>Last Updated</th>
                 </tr>

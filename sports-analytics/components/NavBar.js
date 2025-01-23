@@ -27,16 +27,16 @@ const NavBar = () => {
           {showDropdown && (
             <ul className={styles.dropdown}>
               <li>
-                <Link href="/money-line">Money Line</Link>
+                <Link href="/money-line-NFL">Money Line</Link>
               </li>
               <li>
-                <Link href="/over-under">Over Under</Link>
+                <Link href="/over-under-NFL">Over Under</Link>
               </li>
               <li>
-                <Link href="/spreads">Spreads</Link>
+                <Link href="/spreads-NFL">Spreads</Link>
               </li>
               <li>
-                <Link href="/player-props">Player Props</Link>
+                <Link href="/player-props-NFL">Player Props</Link>
               </li>
             </ul>
           )}
@@ -52,16 +52,16 @@ const NavBar = () => {
           {showDropdownNHL && (
             <ul className={styles.dropdown}>
               <li>
-                <Link href="/money-line">Money Line</Link>
+                <Link href="/money-line-NHL">Money Line</Link>
               </li>
               <li>
-                <Link href="/over-under">Over Under</Link>
+                <Link href="/over-under-NHL">Over Under</Link>
               </li>
               <li>
-                <Link href="/spreads">Spreads</Link>
+                <Link href="/spreads-NHL">Spreads</Link>
               </li>
               <li>
-                <Link href="/player-props">Player Props</Link>
+                <Link href="/player-props-NHL">Player Props</Link>
               </li>
             </ul>
           )}
@@ -77,16 +77,16 @@ const NavBar = () => {
           {showDropdownMLB && (
             <ul className={styles.dropdown}>
               <li>
-                <Link href="/money-line">Money Line</Link>
+                <Link href="/money-line-MLB">Money Line</Link>
               </li>
               <li>
-                <Link href="/over-under">Over Under</Link>
+                <Link href="/over-under-MLB">Over Under</Link>
               </li>
               <li>
-                <Link href="/spreads">Spreads</Link>
+                <Link href="/spreads-MLB">Spreads</Link>
               </li>
               <li>
-                <Link href="/player-props">Player Props</Link>
+                <Link href="/player-props-MLB">Player Props</Link>
               </li>
             </ul>
           )}
@@ -102,16 +102,16 @@ const NavBar = () => {
           {showDropdownNBA && (
             <ul className={styles.dropdown}>
               <li>
-                <Link href="/money-line">Money Line</Link>
+                <Link href="/money-line-NBA">Money Line</Link>
               </li>
               <li>
-                <Link href="/over-under">Over Under</Link>
+                <Link href="/over-under-NBA">Over Under</Link>
               </li>
               <li>
-                <Link href="/spreads">Spreads</Link>
+                <Link href="/spreads-NBA">Spreads</Link>
               </li>
               <li>
-                <Link href="/player-props">Player Props</Link>
+                <Link href="/player-props-NBA">Player Props</Link>
               </li>
             </ul>
           )}

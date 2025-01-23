@@ -27,6 +27,41 @@ export const getColorForBookie = (bookie) => {
   return colors[bookie] || "#000000"; // Default to black if bookie color is not defined
 };
 
+export const getColorForBookieProp = (bookie) => {
+  const colors = {
+    DraftKings: "#28a745",
+    FanDuel: "#F33711",
+    "MyBookie.ag": "#1e88e5",
+    BetRivers: "#EB6BE8",
+    Caesars: "#31DFF7",
+    BetMGM: "#8B1388",
+    "LowVig.ag": "#9A837E",
+    "BetOnline.ag": "#FCFC5A",
+    Bovada: "#000000",
+    BetUS: "#FFA500",
+    WilliamHill: "#ffA500",
+  };
+
+  // Bookie name mappings for props
+  const bookieMappings = {
+    fanduel: "FanDuel",
+    draftkings: "DraftKings",
+    betmgm: "BetMGM",
+    williamhill_us: "WilliamHill", // Map specific variations
+    betrivers: "BetRivers",
+    bovada: "Bovada",
+    betus: "BetUS",
+    betonlineag: "BetOnline.ag", // Map lowercase to correct format
+  };
+
+  // Normalize the bookie name for color matching
+  const normalizedBookie =
+    bookieMappings[bookie.toLowerCase()] ||
+    bookie.trim().replace(/\b\w/g, (char) => char.toUpperCase());
+
+  return colors[normalizedBookie] || "#000000"; // Default to black if bookie color is not defined
+};
+
 export const groupGamesByDate = (games) => {
   return games.reduce((acc, game) => {
     // Ensure event_timestamp is defined and valid
@@ -127,4 +162,12 @@ export const generateChartOptions = () => {
       },
     },
   };
+};
+
+export const formatTitle = (title) => {
+  return title
+    .replace(/_/g, " ") // Replace underscores with spaces
+    .split(" ") // Split by spaces
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()) // Capitalize each word
+    .join(" "); // Join the words back into a string
 };

@@ -5,7 +5,7 @@ import "../../styles/globals.css"; // Global styles if needed
 export default function SpreadsPage() {
   return (
     <main>
-      <Spreads />
+      <Spreads sportTitle="NFL" />
     </main>
   );
 }

@@ -5,7 +5,7 @@ export default function MoneyLinePage() {
   return (
     <>
       <main>
-        <MoneyLine />
+        <MoneyLine sportTitle="NHL" />
       </main>
     </>
   );

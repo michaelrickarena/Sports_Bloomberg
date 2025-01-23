@@ -5,7 +5,7 @@ import "../../styles/globals.css"; // Global styles if needed
 export default function OverUnderPage() {
   return (
     <main>
-      <OverUnder />
+      <OverUnder sportTitle="NHL" />
     </main>
   );
 }

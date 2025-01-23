@@ -30,7 +30,7 @@ import {
   generateChartOptions,
 } from "../utils/utils.js";
 
-const DropdownWithCharts = () => {
+const DropdownWithCharts = ({ sportTitle }) => {
   const [games, setGames] = useState([]);
   const [groupedGames, setGroupedGames] = useState({});
   const [loading, setLoading] = useState(true);
@@ -44,7 +44,6 @@ const DropdownWithCharts = () => {
   useEffect(() => {
     const fetchGames = async () => {
       try {
-        const sportTitle = "NFL";
         const response = await fetch(
           `http://127.0.0.1:8000/api/upcoming_games/?sport_title=${sportTitle}`
         );
@@ -65,7 +64,7 @@ const DropdownWithCharts = () => {
         abortController.abort(); // Cleanup on component unmount or game change
       }
     };
-  }, [abortController]);
+  }, [abortController, sportTitle]);
 
   const handleGameSelect = async (event) => {
     const gameId = event.target.value;
@@ -78,8 +77,6 @@ const DropdownWithCharts = () => {
       try {
         const controller = new AbortController();
         setAbortController(controller);
-
-        const sportType = "americanfootball_nfl";
 
         let nextUrl = `http://127.0.0.1:8000/api/moneyline/?game_id=${gameId}`;
         let allMoneylineData = [];
@@ -194,7 +191,14 @@ const DropdownWithCharts = () => {
       )}
 
       {/* Render the LatestMoneylineTable component */}
-      <LatestMoneylineTable gameId={selectedGameId} />
+      <LatestMoneylineTable
+        gameId={selectedGameId}
+        endpoint="latest_moneyline"
+        line1="line_1"
+        line2="line_2"
+        home_team="home_team"
+        away_team="away_team"
+      />
 
       {!loadingData && moneylineData.length > 0 && (
         <div>
