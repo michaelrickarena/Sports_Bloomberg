@@ -6,6 +6,9 @@
 #   * Remove `managed = False` lines if you wish to allow Django to create, modify, and delete the table
 # Feel free to rename the models, but don't rename db_table values or field names.
 from django.db import models
+from django.contrib.auth.models import User
+from django.utils.timezone import now
+from datetime import timedelta
 
 class AuthGroup(models.Model):
     id = models.BigIntegerField(primary_key=True)  # AutoField?
@@ -361,3 +364,29 @@ class Scores(models.Model):
     class Meta:
         managed = False
         db_table = 'scores'
+
+
+class UserSubscription(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)  # Link to the user
+    stripe_subscription_id = models.CharField(max_length=255, unique=True, null=True, blank=True)  # Stripe subscription (optional until payment)
+    status = models.CharField(max_length=50, default='trial')  # Subscription status (trial, active, inactive)
+    trial_start_date = models.DateTimeField(default=now)  # Automatically set trial start
+    expiration_date = models.DateTimeField(null=True, blank=True)  # When the subscription expires
+    cancel_date = models.DateTimeField(null=True, blank=True)  # If the user cancels the subscription
+
+    def set_trial_period(self):
+        """Automatically set a 7-day trial expiration when the subscription is created."""
+        if not self.expiration_date:
+            self.expiration_date = now() + timedelta(days=7)
+
+    def save(self, *args, **kwargs):
+        """Ensure expiration date is set if in trial status."""
+        if self.status == 'trial' and not self.expiration_date:
+            self.set_trial_period()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.user.username}'s Subscription"
+
+    class Meta:
+        db_table = 'user_subscription'

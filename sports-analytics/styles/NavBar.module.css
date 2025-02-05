@@ -43,3 +43,9 @@
   color: white;
   text-decoration: none;
 }
+
+.rightAlign {
+  margin-left: auto;
+  display: flex;
+  gap: 1rem; /* Adjust spacing between Sign In and Sign Up as needed */
+}

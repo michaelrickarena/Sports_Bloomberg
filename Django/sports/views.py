@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -20,6 +20,30 @@ from rest_framework.pagination import PageNumberPagination
 from .services import get_chart_data
 from django.core.cache import cache
 import logging
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib import messages
+import stripe
+from django.conf import settings
+from django.http import JsonResponse, HttpResponse
+from dotenv import load_dotenv
+import os
+from django.views.decorators.csrf import csrf_exempt  # Import csrf_exempt decorator
+import json
+from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
+
+from django.utils import timezone
+from datetime import timedelta
+from .models import UserSubscription
+from rest_framework.decorators import api_view
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.utils.timezone import now
+
+
+load_dotenv()
+
+STRIPE_DOMAIN = os.getenv('STRIPE_DOMAIN')
+
 
 logger = logging.getLogger("logsport")
 
@@ -445,3 +469,266 @@ class latest_SpreadsListView(APIView):
 
 
 # LATEST MONEYLINE NEEDED
+
+
+#### Registration
+
+def register(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Your account has been created successfully!')
+            return redirect('login')  # Redirect to the login page after registration
+    else:
+        form = UserCreationForm()
+    return render(request, 'registration/register.html', {'form': form})
+
+
+stripe.api_key = settings.STRIPE_TEST_SECRET_KEY
+
+@csrf_exempt
+def create_checkout_session(request):
+    if request.method == 'POST':
+        YOUR_DOMAIN = os.getenv('STRIPE_DOMAIN')
+
+        try:
+            # Log incoming request body
+            logger.info(f"Request body: {request.body.decode('utf-8')}")
+
+            # Use the recurring price ID from the Stripe dashboard
+            price_id = 'price_1QmjCGB70pdVZrmYviRQc2Mn'  # Replace with your actual recurring price ID
+
+            # Create a Stripe Checkout session
+            session = stripe.checkout.Session.create(
+                payment_method_types=['card'],
+                line_items=[
+                    {
+                        'price': price_id,  # Use the recurring price ID here
+                        'quantity': 1,
+                    },
+                ],
+                mode='subscription',  # Subscription mode
+                success_url=f"{YOUR_DOMAIN}/success/",
+                cancel_url=f"{YOUR_DOMAIN}/cancel/",
+            )
+
+            logger.info(f"Stripe session created: {session.id}")
+            return JsonResponse({'id': session.id})
+
+        except Exception as e:
+            logger.error(f"Error creating session: {str(e)}")
+            return JsonResponse({'error': str(e)}, status=400)
+
+    else:
+        # If not a POST request, return a Method Not Allowed error
+        logger.error("Invalid HTTP method.")
+        return JsonResponse({'error': 'Invalid HTTP method'}, status=405)
+    
+
+def success(request):
+    return render(request, 'success.html')  # Create this template
+
+def cancel(request):
+    return render(request, 'cancel.html')  # Create this template
+
+@csrf_exempt
+def stripe_webhook(request):
+    payload = request.body
+    sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
+
+    if not sig_header:
+        logger.error("Missing Stripe signature header")
+        return JsonResponse({'message': 'Missing Stripe signature header'}, status=400)
+
+    endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
+
+    try:
+        # Verify and construct the event from Stripe
+        event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
+        logger.info(f"Received event: {event['type']}")
+
+        # Handle successful checkout session or payment events
+        if event['type'] == 'invoice.payment_succeeded':
+            session = event['data']['object']
+            handle_successful_payment(session)
+            logger.info(f"Payment succeeded for {session['customer_email']}")
+
+        # Handle cancellation event
+        elif event['type'] == 'customer.subscription.deleted':
+            session = event['data']['object']
+            handle_subscription_cancellation(session)
+            logger.info(f"Subscription cancelled for {session['customer_email']}")
+
+        return HttpResponse(status=200)
+
+    except ValueError as e:
+        logger.error(f"Invalid payload: {str(e)}")
+        return JsonResponse({'message': 'Invalid payload'}, status=400)
+    except stripe.error.SignatureVerificationError as e:
+        logger.error(f"Signature verification error: {str(e)}")
+        return JsonResponse({'message': 'Invalid signature'}, status=400)
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        return JsonResponse({'message': 'Internal server error'}, status=500)
+
+def handle_successful_payment(session):
+    """Updates the user's subscription based on the successful payment."""
+    user = get_user_by_stripe_id(session['customer'])
+    if user:
+        # Calculate next payment date, for example, one month from now
+        next_payment_date = timezone.now() + timedelta(days=30)
+
+        # Create or update the subscription
+        subscription, created = UserSubscription.objects.update_or_create(
+            user=user,
+            defaults={
+                'stripe_subscription_id': session['subscription'],
+                'status': 'active',
+                'expiration_date': next_payment_date,  # Set expiration date for one month
+            }
+        )
+
+def handle_subscription_cancellation(session):
+    """Handles subscription cancellations."""
+    user = get_user_by_stripe_id(session['customer'])
+    if user:
+        subscription = UserSubscription.objects.filter(user=user).first()
+        if subscription:
+            subscription.status = 'inactive'
+            subscription.cancel_date = timezone.now()  # Mark the cancellation date
+            subscription.save()
+
+def get_user_by_stripe_id(stripe_customer_id):
+    """Retrieve the user based on their Stripe customer ID."""
+    try:
+        # Assuming you have a field in your User model to store the Stripe customer ID
+        return User.objects.get(stripe_customer_id=stripe_customer_id)
+    except User.DoesNotExist:
+        return None
+
+def handle_checkout_session(session):
+    """Process the successful checkout session here."""
+    logger.info(f"Handling checkout session: {session['id']}")
+    if session.get('subscription'):
+        logger.info(f"Subscription ID: {session['subscription']}")
+
+
+@api_view(['POST'])
+def register_and_get_jwt(request):
+    if request.method == 'POST':
+        print("Received POST request for registration.")
+
+        # Get the data from the request
+        username = request.data.get('username')
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        print(f"Received data - Username: {username}, Email: {email}")
+
+        # Check if all fields are provided
+        if not username or not email or not password:
+            print("Missing required fields.")
+            return Response({"error": "All fields are required."}, status=400)
+
+        # Check if email is unique
+        if User.objects.filter(email=email).exists():
+            print(f"Email {email} is already taken.")
+            return Response({"error": "Email is already taken."}, status=400)
+
+        # Create the user
+        try:
+            print("Creating user...")
+            user = User.objects.create_user(username=username, email=email, password=password)
+            print(f"User created: {user.username}")
+        except Exception as e:
+            print(f"Error creating user: {str(e)}")
+            return Response({"error": "User creation failed."}, status=500)
+
+        # Now, create Stripe customer
+        try:
+            print(f"Creating Stripe customer for email: {email}")
+            stripe_customer = stripe.Customer.create(
+                email=email,
+                description=f"Customer for {username}",
+            )
+            print(f"Stripe customer created: {stripe_customer}")
+        except Exception as e:
+            print(f"Error creating Stripe customer: {str(e)}")
+            return Response({"error": "Stripe customer creation failed."}, status=400)
+
+        if not stripe_customer.get("id"):
+            print("Stripe customer creation failed. Missing Stripe customer ID.")
+            return Response({"error": "Stripe customer creation failed."}, status=400)
+
+        print(f"Stripe customer ID: {stripe_customer['id']}")
+        stripe_subscription_id = stripe_customer.get("id")
+
+        # Now create the user subscription record
+        try:
+            print(f"Creating user subscription for user: {user.username}")
+            user_subscription = UserSubscription.objects.create(
+                user=user,  # Link the user to the subscription
+                stripe_subscription_id=stripe_subscription_id,  # Set the subscription ID
+                status='active'
+            )
+            print(f"User subscription created successfully: {stripe_subscription_id}")
+        except Exception as e:
+            print(f"Error creating user subscription: {str(e)}")
+            return Response({"error": "User subscription creation failed."}, status=500)
+
+        # Create JWT token for the user after subscription is created
+        print("Creating JWT token for user.")
+        refresh = RefreshToken.for_user(user)
+        access_token = refresh.access_token
+        print("JWT token created successfully.")
+
+        return Response({
+            'refresh': str(refresh),
+            'access': str(access_token),
+        })
+
+
+
+#login
+
+@api_view(['POST'])
+def login_and_get_jwt(request):
+    username = request.data.get('username')
+    password = request.data.get('password')
+
+    # Check if both fields are provided
+    if not username or not password:
+        return Response({"error": "Username and password are required."}, status=400)
+
+    # Authenticate the user
+    user = authenticate(username=username, password=password)
+    if user is None:
+        return Response({"error": "Invalid username or password."}, status=401)
+
+    # Generate JWT tokens
+    refresh = RefreshToken.for_user(user)
+    return Response({
+        'refresh': str(refresh),
+        'access': str(refresh.access_token),
+    })
+
+
+def check_subscription(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "User not authenticated"}, status=401)
+
+    try:
+        subscription = UserSubscription.objects.get(user=request.user)
+        trial_end_date = subscription.start_date + timedelta(days=7)
+
+        if subscription.status == 'inactive' and now() > trial_end_date:
+            return JsonResponse({"status": "expired", "message": "Trial expired. Please subscribe."})
+
+        if subscription.status == 'active' and subscription.expiration_date and now() < subscription.expiration_date:
+            return JsonResponse({"status": "active", "message": "Subscription is active."})
+
+        return JsonResponse({"status": "inactive", "message": "Subscription is inactive."})
+
+    except UserSubscription.DoesNotExist:
+        return JsonResponse({"error": "No subscription found for the user."}, status=404)

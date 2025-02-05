@@ -23,7 +23,95 @@ const HomePage = () => {
   if (disclaimerAccepted) {
     return (
       <div>
-        <h1>Welcome to the Sports Analytics Website</h1>
+        <h1 className={styles.title}>
+          Welcome to SmartLines.ca – Your Ultimate Sports Analytics Hub!
+        </h1>
+
+        <section>
+          <p>
+            At SmartLines, we bring you powerful insights to elevate your sports
+            betting experience. Whether you’re a seasoned bettor or just getting
+            started, our platform provides you with comprehensive data on{" "}
+            <strong>Moneylines</strong>, <strong>Spreads</strong>,{" "}
+            <strong>Over/Unders</strong>, and <strong>Player Props</strong> for
+            all sports, including NFL, NBA, MLB, and more.
+          </p>
+
+          <h2>How It Works</h2>
+
+          <h3>Moneyline</h3>
+          <p>
+            The Moneyline is one of the most straightforward betting options. It
+            simply reflects the odds for a team to win. If you bet on the
+            Moneyline, you’re picking which team will win outright, with no need
+            to worry about the point spread. We provide you with up-to-date
+            Moneyline odds from various bookies, helping you identify the best
+            value and opportunities for profitable bets.
+          </p>
+
+          <h3>Spread</h3>
+          <p>
+            In spread betting, the favorite team must win by a certain number of
+            points, while the underdog team can lose by fewer points (or win
+            outright) for your bet to be successful. Our <strong>spread</strong>{" "}
+            section breaks down the odds and provides you with key insights into
+            the spread for each game, allowing you to compare line movements and
+            spot favorable opportunities.
+          </p>
+
+          <h3>Over/Under</h3>
+          <p>
+            The Over/Under, also known as the Total, is a bet on the total
+            combined points (or other statistical metrics) of both teams in a
+            game. Our <strong>Over/Under</strong> section keeps track of all
+            available totals for each game and displays the current odds,
+            helping you evaluate how both teams are performing and if the
+            projected total is a good betting opportunity.
+          </p>
+
+          <h3>Player Props</h3>
+          <p>
+            Player Prop bets are a fun and unique way to engage with the game by
+            betting on individual player performances. Whether it’s the total
+            passing yards of a quarterback, the number of points scored by a
+            basketball player, or how many strikeouts a pitcher will have, our{" "}
+            <strong>Player Props</strong> section gives you all the data you
+            need to make informed decisions on player-specific bets.
+          </p>
+
+          <h3>Real-Time Data & Analytics</h3>
+          <p>
+            All the data on our site is updated every few hours to ensure you’re
+            getting the latest odds and projections from multiple bookies. We
+            use advanced analytics to track line movements, player stats, and
+            betting patterns, so you have the insights you need to make informed
+            bets.
+          </p>
+
+          <h3>Why Choose Us?</h3>
+          <ul>
+            <li>
+              <strong>Comprehensive Coverage</strong>: We cover a wide range of
+              sports and betting markets, so you can find data on all your
+              favorite teams and players.
+            </li>
+            <li>
+              <strong>Up-to-date Odds</strong>: Our platform updates odds and
+              statistics in real-time, giving you the edge in your betting
+              decisions.
+            </li>
+            <li>
+              <strong>User-friendly Interface</strong>: Easily navigate between
+              different sports, games, and bet types with our intuitive
+              interface.
+            </li>
+            <li>
+              <strong>Arbitrage Opportunities</strong>: We help you identify
+              discrepancies between bookies, giving you the chance to take
+              advantage of arbitrage opportunities for risk-free profits.
+            </li>
+          </ul>
+        </section>
       </div>
     );
   }

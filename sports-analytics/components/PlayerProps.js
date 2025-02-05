@@ -23,7 +23,7 @@ const PlayerProps = ({ sportType }) => {
 
       try {
         let allPlayerNames = [];
-        let nextUrl = `http://127.0.0.1:8000/api/distinct_props/?sport_type=${sportType}`;
+        let nextUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/distinct_props/?sport_type=${sportType}`;
 
         while (nextUrl) {
           const response = await fetch(nextUrl);

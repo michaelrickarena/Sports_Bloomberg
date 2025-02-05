@@ -22,7 +22,9 @@ const LatestPropsTable = ({ playerName, propType }) => {
       setError(null);
 
       try {
-        const url = `http://127.0.0.1:8000/api/latest_props/?player_name=${encodeURIComponent(
+        const url = `${
+          process.env.NEXT_PUBLIC_API_BASE_URL
+        }/latest_props/?player_name=${encodeURIComponent(
           playerName
         )}&prop_type=${encodeURIComponent(propType)}`;
 

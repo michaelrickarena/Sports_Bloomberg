@@ -20,8 +20,9 @@ load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-
+STRIPE_TEST_PUBLIC_KEY = os.getenv('STRIPE_TEST_PUBLIC_KEY')
+STRIPE_TEST_SECRET_KEY = os.getenv('STRIPE_TEST_SECRET_KEY')
+STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -32,7 +33,7 @@ SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['10.0.0.29', 'localhost', '127.0.0.1']
 
 
 # Application definition
@@ -47,7 +48,14 @@ INSTALLED_APPS = [
     'sports',
     'rest_framework',
     'corsheaders',
+    'rest_framework_simplejwt',
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -58,6 +66,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    # 'sports.middleware.SubscriptionCheckMiddleware',
 ]
 
 ROOT_URLCONF = 'sportsanalytics.urls'
@@ -65,8 +74,8 @@ ROOT_URLCONF = 'sportsanalytics.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
+        'DIRS': [BASE_DIR / 'templates', BASE_DIR / 'sports/templates/registration'],  # Add your specific templates folder
+        'APP_DIRS': True,  # This ensures Django looks in app's templates directory
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
@@ -77,6 +86,7 @@ TEMPLATES = [
         },
     },
 ]
+
 
 WSGI_APPLICATION = 'sportsanalytics.wsgi.application'
 
@@ -177,3 +187,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Allow all origins (development purposes)
 CORS_ALLOW_ALL_ORIGINS = True
+
+#registration
+LOGIN_REDIRECT_URL = '/'  # Redirect to home page after successful login
+LOGOUT_REDIRECT_URL = '/'  # Redirect to home page after logout
+
+CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:3000']

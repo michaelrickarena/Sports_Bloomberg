@@ -1,3 +1,5 @@
+import Chart from "chart.js/auto";
+
 // utils.js
 export const formatTimestamp = (timestamp) => {
   const date = new Date(timestamp);
@@ -125,6 +127,7 @@ export const generateBaseChartData = (
     }
   });
 
+  // Filter datasets based on selectedBookies
   const filteredDatasets = Object.values(bookieDataMap).filter((item) =>
     selectedBookies.includes(item.label)
   );
@@ -135,19 +138,20 @@ export const generateBaseChartData = (
   };
 };
 
-export const generateChartOptions = () => {
+export const generateChartOptions = (chartData) => {
+  const isClient = typeof window !== "undefined"; // Check if running on the client side
+
   return {
     responsive: true,
     plugins: {
-      tooltip: {
-        backgroundColor: (context) =>
-          context.tooltipItems[0].dataset.borderColor, // Tooltip color matches line color
-        callbacks: {
-          title: (tooltipItem) => {
-            const tooltipIndex = tooltipItem[0].dataIndex;
-            const bookie = tooltipItem[0].dataset.label;
-            const lineValue = tooltipItem[0].dataset.data[tooltipIndex];
-            return `${bookie}: ${lineValue}`;
+      legend: {
+        display: isClient ? window.innerWidth > 1000 : true, // Default to true on the server
+        position: "top",
+        labels: {
+          boxWidth: 20,
+          padding: 15,
+          font: {
+            size: isClient ? (window.innerWidth <= 768 ? 10 : 12) : 12, // Default font size on the server
           },
         },
       },
@@ -158,7 +162,22 @@ export const generateChartOptions = () => {
     },
     elements: {
       point: {
-        hoverBackgroundColor: (context) => context.hoverColor, // Match point hover
+        hoverBackgroundColor: (context) => context.hoverColor,
+      },
+    },
+    scales: {
+      x: {
+        ticks: {
+          maxRotation: 0, // Force horizontal labels
+          minRotation: 0, // Prevent any rotation
+          autoSkip: true, // Automatically skip labels if they don’t fit
+          maxTicksLimit: 5, // Limit the number of labels shown
+          callback: (val, index) => {
+            return isClient && window.innerWidth <= 1000 && index % 2 !== 0
+              ? ""
+              : chartData.labels[val];
+          },
+        },
       },
     },
   };

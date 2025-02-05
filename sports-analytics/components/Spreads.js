@@ -11,6 +11,7 @@ import {
   LinearScale,
   PointElement,
   Tooltip,
+  Legend,
 } from "chart.js";
 
 // Register Chart.js components
@@ -45,7 +46,7 @@ const DropdownWithCharts = ({ sportTitle }) => {
     const fetchGames = async () => {
       try {
         const response = await fetch(
-          `http://127.0.0.1:8000/api/upcoming_games/?sport_title=${sportTitle}`
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/upcoming_games/?sport_title=${sportTitle}`
         );
         const data = await response.json();
         setGames(data);
@@ -78,7 +79,7 @@ const DropdownWithCharts = ({ sportTitle }) => {
         const controller = new AbortController();
         setAbortController(controller);
 
-        let nextUrl = `http://127.0.0.1:8000/api/spreads/?game_id=${gameId}`;
+        let nextUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/spreads/?game_id=${gameId}`;
         let allMoneylineData = [];
         let abortFlag = false;
 
@@ -138,9 +139,18 @@ const DropdownWithCharts = ({ sportTitle }) => {
     return {
       labels: timestamps,
       datasets: datasets,
-      options: generateChartOptions(),
     };
   };
+
+  const chartDataSpread1 = generateChartData("spread_1");
+  const chartDataSpread2 = generateChartData("spread_2");
+  const chartOptionsSpread1 = generateChartOptions(chartDataSpread1);
+  const chartOptionsSpread2 = generateChartOptions(chartDataSpread2);
+
+  const chartDataLine1 = generateChartData("line_1");
+  const chartDataLine2 = generateChartData("line_2");
+  const chartOptionsLine1 = generateChartOptions(chartDataLine1);
+  const chartOptionsLine2 = generateChartOptions(chartDataLine2);
 
   const handleBookieSelect = (bookie) => {
     setSelectedBookies((prevSelected) => {
@@ -170,7 +180,13 @@ const DropdownWithCharts = ({ sportTitle }) => {
   return (
     <div>
       <h2>Select a Game Below</h2>
-      <select onChange={handleGameSelect}>
+      <select onChange={handleGameSelect} defaultValue="">
+        {/* Default option */}
+        <option value="" disabled>
+          Select a game to view details
+        </option>
+
+        {/* Grouped games */}
         {Object.keys(groupedGames).map((date) => (
           <optgroup key={date} label={date}>
             {groupedGames[date].map((game) => (
@@ -223,65 +239,22 @@ const DropdownWithCharts = ({ sportTitle }) => {
           <div className="chart-wrapper">
             <div className="chart-container">
               <h4>Spread - {moneylineData[0].home_team}</h4>
-              <Line data={generateChartData("spread_1")} />
+              <Line data={chartDataSpread1} options={chartOptionsSpread1} />
             </div>
             <div className="chart-container">
               <h4>Spread - {moneylineData[0].away_team}</h4>
-              <Line data={generateChartData("spread_2")} />
+              <Line data={chartDataSpread2} options={chartOptionsSpread2} />
             </div>
           </div>
           <h3>Payout Movements</h3>
           <div className="chart-wrapper">
             <div className="chart-container">
               <h4>Betting Line - {moneylineData[0].home_team}</h4>
-              <Line data={generateChartData("line_1")} />
+              <Line data={chartDataLine1} options={chartOptionsLine1} />
             </div>
             <div className="chart-container">
               <h4>Betting Line - {moneylineData[0].away_team}</h4>
-              <Line data={generateChartData("line_2")} />
-            </div>
-          </div>
-          {/* Bookie legend - moved below the charts */}
-          <div
-            className="bookie-legend"
-            style={{
-              marginTop: "20px",
-              display: "flex",
-              justifyContent: "center",
-              flexDirection: "column",
-              alignItems: "center",
-            }}
-          >
-            <h4>Bookie Legend</h4>
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                justifyContent: "center",
-              }}
-            >
-              {uniqueBookies.map((bookie) => (
-                <div
-                  key={bookie}
-                  style={{
-                    display: "flex", // Align items horizontally
-                    alignItems: "center", // Vertically center the items
-                    marginRight: "20px", // Space between each legend item
-                    marginBottom: "10px", // Space between rows when wrapping
-                  }}
-                >
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: "20px",
-                      height: "20px",
-                      backgroundColor: getColorForBookie(bookie),
-                      marginRight: "8px",
-                    }}
-                  ></span>
-                  {bookie}
-                </div>
-              ))}
+              <Line data={chartDataLine2} options={chartOptionsLine2} />
             </div>
           </div>
         </div>

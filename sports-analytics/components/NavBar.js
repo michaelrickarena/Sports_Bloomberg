@@ -1,6 +1,6 @@
 "use client"; // Add this line at the top of the file to mark this component as a client component
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import styles from "../styles/NavBar.module.css";
 
@@ -9,6 +9,23 @@ const NavBar = () => {
   const [showDropdownNHL, setShowDropdownNHL] = useState(false);
   const [showDropdownMLB, setShowDropdownMLB] = useState(false);
   const [showDropdownNBA, setShowDropdownNBA] = useState(false);
+  const [showDropdownAnalytics, setShowDropdownAnalytics] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // State to track login status
+
+  // Check login status on component mount
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      setIsLoggedIn(true); // User is logged in
+    } else {
+      setIsLoggedIn(false); // User is not logged in
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("access_token");
+    setIsLoggedIn(false); // Update the login status
+  };
 
   return (
     <nav className={styles.nav}>
@@ -116,6 +133,47 @@ const NavBar = () => {
             </ul>
           )}
         </li>
+
+        {/* Analytics Dropdown */}
+        <li
+          className={styles.navItem}
+          onMouseEnter={() => setShowDropdownAnalytics(true)}
+          onMouseLeave={() => setShowDropdownAnalytics(false)}
+        >
+          Analytics
+          {showDropdownAnalytics && (
+            <ul className={styles.dropdown}>
+              <li>
+                <Link href="/biggest-line-movements">
+                  Biggest Line Movements
+                </Link>
+              </li>
+              <li>
+                <Link href="/arbitrage-opportunities">
+                  Arbitrage Opportunities
+                </Link>
+              </li>
+            </ul>
+          )}
+        </li>
+
+        {/* User Authentication Links */}
+        {isLoggedIn ? (
+          // Logged In - Show Logout
+          <li className={`${styles.navItem} ${styles.rightAlign}`}>
+            <button onClick={handleLogout}>Logout</button>
+          </li>
+        ) : (
+          // Not Logged In - Show Sign In and Sign Up
+          <>
+            <li className={`${styles.navItem} ${styles.rightAlign}`}>
+              <Link href="/login">Sign In</Link>
+            </li>
+            <li className={styles.navItem}>
+              <Link href="/register">Sign Up</Link>
+            </li>
+          </>
+        )}
       </ul>
     </nav>
   );

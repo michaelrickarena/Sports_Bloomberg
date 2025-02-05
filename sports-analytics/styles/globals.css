@@ -102,16 +102,17 @@ button:active {
   flex-wrap: wrap; /* Allow charts to wrap on smaller screens */
 }
 
-/* Style for the charts */
+/* Style for the canvas */
 .chart-container canvas {
-  width: 100% !important;
-  height: auto !important;
-  max-height: 400px;
+  width: 100% !important; /* Make the canvas responsive */
+  height: auto !important; /* Ensure the height scales properly */
+  display: block; /* Remove inline-block spacing issues */
 }
 /* Responsive adjustments for smaller screens */
 @media (max-width: 768px) {
   .chart-container {
     width: 100%; /* Stack charts on smaller screens */
+    flex: 1 1 100%;
   }
 }
 
@@ -203,7 +204,7 @@ div input[type="checkbox"]:checked + label {
 @media (max-width: 768px) {
   .chart-wrapper {
     width: 100%;
-    height: 500px; /* Adjust the chart height for smaller screens */
+    height: 100%; /* Adjust the chart height for smaller screens */
     margin: 0 auto;
     padding: 0;
   }

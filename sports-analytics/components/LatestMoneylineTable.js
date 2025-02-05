@@ -23,7 +23,7 @@ const LatestMoneylineTable = ({
       setLoading(true);
       try {
         const response = await fetch(
-          `http://127.0.0.1:8000/api/${endpoint}/?game_id=${gameId}`
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/${endpoint}/?game_id=${gameId}`
         );
         const data = await response.json();
         setLatestMoneylineData(data.results || []);

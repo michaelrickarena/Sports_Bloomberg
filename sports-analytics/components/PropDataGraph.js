@@ -12,7 +12,12 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { getColorForBookieProp, formatTimestamp } from "../utils/utils.js";
+import {
+  getColorForBookieProp,
+  formatTimestamp,
+  generateChartOptions,
+} from "../utils/utils.js";
+import { ClipLoader } from "react-spinners";
 
 ChartJS.register(
   CategoryScale,
@@ -38,7 +43,6 @@ const PropDataGraph = ({
 
   const toggleBookieSelection = (bookie) => {
     updateBookies((prevSelected) => {
-      console.log("Toggling bookie:", bookie);
       if (prevSelected.includes(bookie)) {
         return prevSelected.filter((b) => b !== bookie);
       }
@@ -47,22 +51,15 @@ const PropDataGraph = ({
   };
 
   useEffect(() => {
-    console.log("useEffect triggered");
-    console.log("selectedPlayer:", selectedPlayer);
-    console.log("selectedProp:", selectedProp);
-    console.log("bet_type:", bet_type);
-
     if (!selectedPlayer || !selectedProp) {
-      console.log("No player or prop selected, skipping data fetch");
       return;
     }
 
     const fetchPropData = async () => {
       setLoading(true);
       try {
-        console.log("Fetching prop data...");
         const response = await fetch(
-          `http://127.0.0.1:8000/api/props/?player_name=${selectedPlayer}&prop_type=${selectedProp}`
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/props/?player_name=${selectedPlayer}&prop_type=${selectedProp}`
         );
         if (!response.ok) {
           throw new Error("Failed to fetch prop data");
@@ -71,7 +68,6 @@ const PropDataGraph = ({
         const data = await response.json();
 
         if (!bet_type) {
-          console.error("Error: bet_type is not defined!");
           return;
         }
 
@@ -90,17 +86,18 @@ const PropDataGraph = ({
     fetchPropData();
   }, [selectedPlayer, selectedProp, bet_type, updateBookies]);
 
-  useEffect(() => {
-    console.log("Component re-rendered");
-  }, [propData, selectedBookies]);
+  useEffect(() => {}, [propData, selectedBookies]);
 
   if (loading) {
-    console.log("Loading prop data...");
-    return <div>Loading prop data...</div>;
+    return (
+      <div style={{ textAlign: "center", marginTop: "20px" }}>
+        <ClipLoader size={100} color="#007bff" />
+        <p>Loading prop data... This may take a moment.</p>
+      </div>
+    );
   }
 
   if (propData.length === 0) {
-    console.log("No valid data for this prop.");
     return <div>No valid data for this prop.</div>;
   }
 
@@ -155,7 +152,6 @@ const PropDataGraph = ({
     );
 
   if (chartData.datasets.length === 0 || !isDataValid) {
-    console.log("No data to graph.");
     return <div>No Valid Data to Graph - This Prop Is Not An Over/Under.</div>;
   }
 
@@ -172,27 +168,7 @@ const PropDataGraph = ({
         <Line
           ref={chartRef}
           data={chartData}
-          options={{
-            maintainAspectRatio: false,
-            animation: false, // Turn off animation for better performance
-            tooltips: {
-              enabled: false, // Disable tooltips on mobile for better performance
-            },
-            scales: {
-              x: {
-                display: window.innerWidth <= 768 ? false : true, // Hide x-axis on small screens
-                ticks: {
-                  callback: (val, index) =>
-                    index % 5 === 0 ? chartData.labels[val] : "",
-                },
-              },
-            },
-            plugins: {
-              legend: {
-                display: window.innerWidth <= 768 ? false : true, // Hide the legend on small screens
-              },
-            },
-          }}
+          options={generateChartOptions(chartData)}
         />
       </div>
     </div>
