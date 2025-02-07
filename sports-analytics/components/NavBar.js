@@ -2,9 +2,13 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation"; // Import the router
+import { usePathname } from "next/navigation"; // For detecting route changes (alternative to useRouter)
 import styles from "../styles/NavBar.module.css";
 
 const NavBar = () => {
+  const router = useRouter();
+  const pathname = usePathname(); // Get the current path
   const [showDropdown, setShowDropdown] = useState(false);
   const [showDropdownNHL, setShowDropdownNHL] = useState(false);
   const [showDropdownMLB, setShowDropdownMLB] = useState(false);
@@ -12,7 +16,7 @@ const NavBar = () => {
   const [showDropdownAnalytics, setShowDropdownAnalytics] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false); // State to track login status
 
-  // Check login status on component mount
+  // Check login status on component mount and when route changes
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (token) {
@@ -20,11 +24,29 @@ const NavBar = () => {
     } else {
       setIsLoggedIn(false); // User is not logged in
     }
-  }, []);
+  }, [pathname]); // Re-run useEffect when the route changes
 
   const handleLogout = () => {
+    // Remove the tokens from localStorage
     localStorage.removeItem("access_token");
-    setIsLoggedIn(false); // Update the login status
+    localStorage.removeItem("refresh_token");
+
+    // Update the login status
+    setIsLoggedIn(false);
+
+    // Redirect to login page
+    router.push("/login"); // Redirect user to login page after logout
+  };
+
+  const handleLogin = () => {
+    // Manually update the login state when the user logs in
+    setIsLoggedIn(true);
+
+    // Store the token in localStorage
+    localStorage.setItem("access_token", "your_access_token");
+
+    // Optionally, redirect after login
+    router.push("/"); // Or route to a dashboard/home page after login
   };
 
   return (

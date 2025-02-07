@@ -1,6 +1,7 @@
 "use client"; // Add this line at the top of the file to mark this component as a client component
 
 import { useState } from "react";
+import "../styles/login.css"; // Import the CSS file without assigning it to a variable
 
 const Register = () => {
   const [username, setUsername] = useState("");
@@ -45,18 +46,24 @@ const Register = () => {
         value={username}
         onChange={(e) => setUsername(e.target.value)}
         placeholder="Username"
+        required
+        className="input-field"
       />
       <input
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="Email"
+        required
+        className="input-field"
       />
       <input
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         placeholder="Password"
+        required
+        className="input-field"
       />
       <button type="submit">Register</button>
     </form>

@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
+import Cookies from "js-cookie"; // Import js-cookie
 
 // Load Stripe public key
 const stripePromise = loadStripe(
@@ -12,30 +15,122 @@ const CheckoutForm = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isSubscribed, setIsSubscribed] = useState(true); // Track subscription status
+  const [accessToken, setAccessToken] = useState(null); // Track the access token
+  const [refreshToken, setRefreshToken] = useState(
+    Cookies.get("refresh_token")
+  ); // Get the refresh token from cookies
   const router = useRouter();
+
+  // Function to refresh access token using the refresh token
+  const refreshAccessToken = useCallback(async () => {
+    try {
+      console.log("Attempting to refresh access token...");
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/token/refresh/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ refresh: refreshToken }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to refresh access token.");
+      }
+
+      const data = await response.json();
+      if (data.access) {
+        Cookies.set("access_token", data.access); // Store new access token in cookies
+        setAccessToken(data.access); // Update accessToken state
+        console.log("Access token refreshed:", data.access);
+      } else {
+        throw new Error("Refresh token is invalid or expired.");
+      }
+    } catch (error) {
+      setError("Error refreshing access token.");
+      console.error(error);
+    }
+  }, [refreshToken]); // Add refreshToken to the dependency array to ensure it's updated
 
   useEffect(() => {
     const checkSubscription = async () => {
       try {
-        // Fetch subscription status from the backend
-        const response = await fetch("/api/check-subscription");
-        if (!response.ok) {
-          throw new Error("Error fetching subscription status.");
+        let token = Cookies.get("access_token"); // Get the token from cookies
+        console.log("Token retrieved from cookies:", token);
+
+        // If there's no token, or it's expired, refresh the token
+        if (!token) {
+          console.log("Access token missing, refreshing token...");
+          await refreshAccessToken();
+          token = Cookies.get("access_token"); // Re-fetch the token after refreshing
         }
 
-        const data = await response.json();
+        // If there's still no token after refreshing, show error
+        if (!token) {
+          throw new Error("Authentication token is still missing.");
+        }
 
-        // If subscription is inactive or trial expired, show checkout
-        if (data.status === "inactive" || data.status === "expired") {
-          setIsSubscribed(false);
+        // Fetch subscription status from the backend with the token in the Authorization header
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/check-subscription`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`, // Send the updated token
+            },
+          }
+        );
+
+        if (response.status === 401) {
+          console.log("Received 401 Unauthorized, refreshing token...");
+          await refreshAccessToken(); // Attempt to refresh the token on 401
+          token = Cookies.get("access_token"); // Fetch the new token
+
+          // Retry the subscription check after refreshing the token
+          if (token) {
+            const retryResponse = await fetch(
+              `${process.env.NEXT_PUBLIC_API_BASE_URL}/check-subscription`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+
+            if (!retryResponse.ok) {
+              throw new Error(
+                "Error fetching subscription status after retry."
+              );
+            }
+
+            const data = await retryResponse.json();
+            if (data.status === "inactive" || data.status === "expired") {
+              setIsSubscribed(false);
+            }
+          } else {
+            throw new Error("Token refresh failed or still invalid.");
+          }
+        } else if (response.ok) {
+          const data = await response.json();
+
+          // If subscription is inactive or trial expired, show checkout
+          if (data.status === "inactive" || data.status === "expired") {
+            setIsSubscribed(false);
+          }
+        } else {
+          throw new Error("Error fetching subscription status.");
         }
       } catch (error) {
         setError("Error checking subscription.");
         console.error(error);
       }
     };
+
     checkSubscription();
-  }, []);
+  }, [accessToken, refreshToken, refreshAccessToken]); // Add refreshAccessToken to dependencies
 
   const handleCheckout = async () => {
     if (!isSubscribed) {
@@ -45,9 +140,15 @@ const CheckoutForm = () => {
       try {
         console.log("Initiating checkout...");
 
+        // Fetch session data for Stripe Checkout session
         const response = await fetch(
           "http://127.0.0.1:8000/create-checkout-session/",
-          { method: "POST" }
+          {
+            method: "POST",
+            headers: {
+              // Add any necessary headers, such as Authorization for authenticated requests if needed
+            },
+          }
         );
 
         if (!response.ok) {

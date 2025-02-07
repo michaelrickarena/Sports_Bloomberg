@@ -14,6 +14,8 @@ from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
 import os
+from datetime import timedelta
+
 load_dotenv()
 
 
@@ -60,13 +62,18 @@ REST_FRAMEWORK = {
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
+    
     # 'sports.middleware.SubscriptionCheckMiddleware',
+]
+CORS_ALLOWED_HEADERS = [
+    'content-type',
+    'Authorization',  # Make sure Authorization is allowed
 ]
 
 ROOT_URLCONF = 'sportsanalytics.urls'
@@ -86,6 +93,14 @@ TEMPLATES = [
         },
     },
 ]
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
 
 
 WSGI_APPLICATION = 'sportsanalytics.wsgi.application'

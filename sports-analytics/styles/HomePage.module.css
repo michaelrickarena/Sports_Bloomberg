@@ -1,4 +1,5 @@
 /* HomePage.module.css */
+
 .modal {
   position: fixed;
   top: 0;
@@ -40,3 +41,65 @@
 .title {
   font-size: 2px;
 } */
+
+.title {
+  text-align: center;
+  font-size: 2.5rem;
+  margin-top: 2rem;
+}
+
+.gridContainer {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  padding: 2rem;
+}
+
+.gridItem {
+  background-color: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+.modal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modalContent {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 8px;
+  max-width: 600px;
+  text-align: center;
+}
+
+.acceptButton {
+  background-color: #007bff;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.acceptButton:hover {
+  background-color: #0056b3;
+}
+
+.firstpara {
+  padding-bottom: 35px;
+  margin-left: 100px;
+  margin-right: 100px;
+  text-align: justify;
+}

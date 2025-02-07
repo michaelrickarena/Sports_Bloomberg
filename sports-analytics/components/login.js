@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import "../styles/login.css"; // Import the CSS file without assigning it to a variable
 
 const Login = () => {
   const [username, setUsername] = useState("");
@@ -13,26 +14,26 @@ const Login = () => {
     event.preventDefault();
 
     try {
-      // Change the endpoint to the token endpoint in Django
-      const response = await fetch("http://127.0.0.1:8000/api/token/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }), // Send the username and password to Django
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/token/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ username, password }),
+        }
+      );
 
       const data = await response.json();
 
-      if (response.ok) {
-        // Save the JWT token in localStorage
+      if (response.ok && data.access && data.refresh) {
         localStorage.setItem("access_token", data.access);
-        localStorage.setItem("refresh_token", data.refresh); // Optionally save the refresh token
+        localStorage.setItem("refresh_token", data.refresh);
 
-        // Redirect to the homepage or dashboard
-        router.push("/"); // Change this to a different route if needed
+        router.push("/");
       } else {
-        setError(data.error || "Login failed. Please check your credentials.");
+        setError(data.detail || "Login failed. Please check your credentials.");
       }
     } catch (error) {
       setError("An error occurred. Please try again later.");
@@ -41,24 +42,31 @@ const Login = () => {
   };
 
   return (
-    <form onSubmit={handleLogin}>
-      <input
-        type="text"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-        placeholder="Username"
-        required
-      />
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Password"
-        required
-      />
-      {error && <p style={{ color: "red" }}>{error}</p>}
-      <button type="submit">Login</button>
-    </form>
+    <>
+      <h3>Welcome to the Login Page</h3>
+      <form onSubmit={handleLogin} className="form-container">
+        <input
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          placeholder="Username"
+          required
+          className="input-field"
+        />
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+          required
+          className="input-field"
+        />
+        {error && <p className="error-message">{error}</p>}
+        <button type="submit" className="submit-button">
+          Login
+        </button>
+      </form>
+    </>
   );
 };
 

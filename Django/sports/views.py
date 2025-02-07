@@ -38,6 +38,10 @@ from .models import UserSubscription
 from rest_framework.decorators import api_view
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils.timezone import now
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.exceptions import AuthenticationFailed
 
 
 load_dotenv()
@@ -548,13 +552,19 @@ def stripe_webhook(request):
         event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
         logger.info(f"Received event: {event['type']}")
 
-        # Handle successful checkout session or payment events
-        if event['type'] == 'invoice.payment_succeeded':
+        # Handle successful checkout session completion event
+        if event['type'] == 'checkout.session.completed':
+            session = event['data']['object']
+            handle_checkout_session(session)
+            logger.info(f"Checkout session completed for {session['customer_email']}")
+
+        # Handle successful payment events (optional, if you still want to track payments)
+        elif event['type'] == 'invoice.payment_succeeded':
             session = event['data']['object']
             handle_successful_payment(session)
             logger.info(f"Payment succeeded for {session['customer_email']}")
 
-        # Handle cancellation event
+        # Handle subscription cancellation event
         elif event['type'] == 'customer.subscription.deleted':
             session = event['data']['object']
             handle_subscription_cancellation(session)
@@ -572,22 +582,47 @@ def stripe_webhook(request):
         logger.error(f"Unexpected error: {str(e)}")
         return JsonResponse({'message': 'Internal server error'}, status=500)
 
+
+def handle_checkout_session(session):
+    """Process the successful checkout session here."""
+    try:
+        # Get the user by Stripe customer ID
+        user = get_user_by_stripe_id(session['customer'])
+        if user:
+            # Extract the subscription ID from the session object
+            subscription_id = session['subscription']
+
+            # Handle subscription creation or update
+            subscription, created = UserSubscription.objects.update_or_create(
+                user=user,
+                defaults={
+                    'stripe_subscription_id': subscription_id,
+                    'status': 'active',  # Mark as active after successful checkout
+                    'expiration_date': timezone.now() + timedelta(days=30),  # Assuming a 30-day subscription
+                }
+            )
+            logger.info(f"Subscription created/updated for {user.username}. Subscription ID: {subscription_id}")
+    except Exception as e:
+        logger.error(f"Error processing checkout session: {str(e)}")
+
+
 def handle_successful_payment(session):
-    """Updates the user's subscription based on the successful payment."""
+    """Handles successful payments (if you still want to handle them)."""
     user = get_user_by_stripe_id(session['customer'])
     if user:
-        # Calculate next payment date, for example, one month from now
+        # Calculate the next payment date
         next_payment_date = timezone.now() + timedelta(days=30)
 
-        # Create or update the subscription
+        # Update the subscription
         subscription, created = UserSubscription.objects.update_or_create(
             user=user,
             defaults={
                 'stripe_subscription_id': session['subscription'],
                 'status': 'active',
-                'expiration_date': next_payment_date,  # Set expiration date for one month
+                'expiration_date': next_payment_date,
             }
         )
+
 
 def handle_subscription_cancellation(session):
     """Handles subscription cancellations."""
@@ -598,21 +633,16 @@ def handle_subscription_cancellation(session):
             subscription.status = 'inactive'
             subscription.cancel_date = timezone.now()  # Mark the cancellation date
             subscription.save()
+            logger.info(f"Subscription cancelled for {user.username}")
+
 
 def get_user_by_stripe_id(stripe_customer_id):
     """Retrieve the user based on their Stripe customer ID."""
     try:
-        # Assuming you have a field in your User model to store the Stripe customer ID
         return User.objects.get(stripe_customer_id=stripe_customer_id)
     except User.DoesNotExist:
+        logger.error(f"User with Stripe customer ID {stripe_customer_id} not found")
         return None
-
-def handle_checkout_session(session):
-    """Process the successful checkout session here."""
-    logger.info(f"Handling checkout session: {session['id']}")
-    if session.get('subscription'):
-        logger.info(f"Subscription ID: {session['subscription']}")
-
 
 @api_view(['POST'])
 def register_and_get_jwt(request):
@@ -713,22 +743,30 @@ def login_and_get_jwt(request):
         'access': str(refresh.access_token),
     })
 
-
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def check_subscription(request):
-    if not request.user.is_authenticated:
-        return JsonResponse({"error": "User not authenticated"}, status=401)
-
     try:
+        # Make sure the user is authenticated
+        if not request.user.is_authenticated:
+            return Response({"detail": "Authentication credentials were not provided."}, status=401)
+
+        # Get the user's subscription
         subscription = UserSubscription.objects.get(user=request.user)
-        trial_end_date = subscription.start_date + timedelta(days=7)
+        trial_end_date = subscription.trial_start_date + timedelta(days=7)
 
-        if subscription.status == 'inactive' and now() > trial_end_date:
-            return JsonResponse({"status": "expired", "message": "Trial expired. Please subscribe."})
+        # Check if trial expired or subscription is still valid
+        if subscription.status == 'inactive' and timezone.now() > trial_end_date:
+            return Response({"status": "expired", "message": "Trial expired. Please subscribe."})
 
-        if subscription.status == 'active' and subscription.expiration_date and now() < subscription.expiration_date:
-            return JsonResponse({"status": "active", "message": "Subscription is active."})
+        if subscription.status == 'active' and subscription.expiration_date and timezone.now() < subscription.expiration_date:
+            return Response({"status": "active", "message": "Subscription is active."})
 
-        return JsonResponse({"status": "inactive", "message": "Subscription is inactive."})
+        return Response({"status": "inactive", "message": "Subscription is inactive."})
 
+    except AuthenticationFailed:
+        print("Authentication failed: Token might have expired.")
+        raise AuthenticationFailed("Authentication credentials were not provided or token expired.")
     except UserSubscription.DoesNotExist:
-        return JsonResponse({"error": "No subscription found for the user."}, status=404)
+        return Response({"error": "No subscription found for the user."}, status=404)
