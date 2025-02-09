@@ -738,10 +738,15 @@ def login_and_get_jwt(request):
 
     # Generate JWT tokens
     refresh = RefreshToken.for_user(user)
-    return Response({
-        'refresh': str(refresh),
-        'access': str(refresh.access_token),
+    
+    # Set JWT tokens as cookies in the response
+    response = JsonResponse({
+        'message': 'Login successful',
     })
+    response.set_cookie('refresh_token', str(refresh), httponly=True, secure=True, samesite='Lax')
+    response.set_cookie('access_token', str(refresh.access_token), httponly=True, secure=True, samesite='Lax')
+
+    return response
 
 @api_view(['GET'])
 @authentication_classes([JWTAuthentication])

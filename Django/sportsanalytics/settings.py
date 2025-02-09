@@ -208,3 +208,8 @@ LOGIN_REDIRECT_URL = '/'  # Redirect to home page after successful login
 LOGOUT_REDIRECT_URL = '/'  # Redirect to home page after logout
 
 CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:3000']
+
+CORS_ALLOW_CREDENTIALS = True
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SAMESITE = 'Lax'  # or 'Strict'

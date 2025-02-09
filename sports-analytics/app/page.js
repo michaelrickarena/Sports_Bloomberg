@@ -39,7 +39,7 @@ const HomePage = () => {
             provides you with comprehensive data on <strong>Moneylines</strong>,{" "}
             <strong>Spreads</strong>, <strong>Over/Unders</strong>, and{" "}
             <strong>Player Props</strong> for the NFL, NBA, MLB, and NHL - we
-            intend to keep integrate more sports.
+            intend to keep integrate more sports. Additionally,
           </p>
 
           <h3>How It Works</h3>

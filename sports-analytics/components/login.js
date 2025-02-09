@@ -22,6 +22,7 @@ const Login = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ username, password }),
+          credentials: "include", // Add this line to include cookies in the request
         }
       );
 

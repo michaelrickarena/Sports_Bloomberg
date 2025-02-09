@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
 import { useRouter } from "next/navigation";
-import Cookies from "js-cookie"; // Import js-cookie
 
 // Load Stripe public key
 const stripePromise = loadStripe(
@@ -16,15 +15,32 @@ const CheckoutForm = () => {
   const [error, setError] = useState(null);
   const [isSubscribed, setIsSubscribed] = useState(true); // Track subscription status
   const [accessToken, setAccessToken] = useState(null); // Track the access token
-  const [refreshToken, setRefreshToken] = useState(
-    Cookies.get("refresh_token")
-  ); // Get the refresh token from cookies
   const router = useRouter();
 
-  // Function to refresh access token using the refresh token
+  // On client mount, retrieve tokens from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedAccessToken = localStorage.getItem("access_token");
+      if (storedAccessToken) {
+        setAccessToken(storedAccessToken);
+      }
+      // Note: We don't store the refresh token in state because we'll read it directly from localStorage
+    }
+  }, []);
+
+  // Function to refresh access token using the refresh token from localStorage
   const refreshAccessToken = useCallback(async () => {
+    const storedRefreshToken = localStorage.getItem("refresh_token");
+    if (!storedRefreshToken) {
+      console.error("No refresh token available. User may not be logged in.");
+      setError("User not authenticated. Please log in.");
+      return;
+    }
     try {
-      console.log("Attempting to refresh access token...");
+      console.log(
+        "Attempting to refresh access token with refresh token:",
+        storedRefreshToken
+      );
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/token/refresh/`,
         {
@@ -32,53 +48,58 @@ const CheckoutForm = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ refresh: refreshToken }),
+          body: JSON.stringify({ refresh: storedRefreshToken }),
         }
       );
-
+      console.log("Refresh token response status:", response.status);
       if (!response.ok) {
+        const errorData = await response.text();
+        console.error(
+          "Failed to refresh access token. Response data:",
+          errorData
+        );
         throw new Error("Failed to refresh access token.");
       }
-
       const data = await response.json();
       if (data.access) {
-        Cookies.set("access_token", data.access); // Store new access token in cookies
+        localStorage.setItem("access_token", data.access); // Store new access token in localStorage
         setAccessToken(data.access); // Update accessToken state
         console.log("Access token refreshed:", data.access);
       } else {
+        console.error("Refresh token is invalid or expired.", data);
         throw new Error("Refresh token is invalid or expired.");
       }
     } catch (error) {
       setError("Error refreshing access token.");
       console.error(error);
     }
-  }, [refreshToken]); // Add refreshToken to the dependency array to ensure it's updated
+  }, []);
 
   useEffect(() => {
     const checkSubscription = async () => {
       try {
-        let token = Cookies.get("access_token"); // Get the token from cookies
-        console.log("Token retrieved from cookies:", token);
+        let token = accessToken; // Use state for the token
+        console.log("Token retrieved from state:", token);
 
-        // If there's no token, or it's expired, refresh the token
+        // If there's no token, attempt to refresh it
         if (!token) {
-          console.log("Access token missing, refreshing token...");
+          console.log("Access token missing, attempting to refresh token...");
           await refreshAccessToken();
-          token = Cookies.get("access_token"); // Re-fetch the token after refreshing
+          token = localStorage.getItem("access_token"); // Re-fetch the token after refreshing
         }
 
-        // If there's still no token after refreshing, show error
+        // If there's still no token after refreshing, throw an error
         if (!token) {
           throw new Error("Authentication token is still missing.");
         }
 
-        // Fetch subscription status from the backend with the token in the Authorization header
+        // Fetch subscription status from the backend using the token
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_BASE_URL}/check-subscription`,
           {
             method: "GET",
             headers: {
-              Authorization: `Bearer ${token}`, // Send the updated token
+              Authorization: `Bearer ${token}`,
             },
           }
         );
@@ -86,7 +107,7 @@ const CheckoutForm = () => {
         if (response.status === 401) {
           console.log("Received 401 Unauthorized, refreshing token...");
           await refreshAccessToken(); // Attempt to refresh the token on 401
-          token = Cookies.get("access_token"); // Fetch the new token
+          token = localStorage.getItem("access_token"); // Get the new token
 
           // Retry the subscription check after refreshing the token
           if (token) {
@@ -115,7 +136,6 @@ const CheckoutForm = () => {
           }
         } else if (response.ok) {
           const data = await response.json();
-
           // If subscription is inactive or trial expired, show checkout
           if (data.status === "inactive" || data.status === "expired") {
             setIsSubscribed(false);
@@ -130,7 +150,7 @@ const CheckoutForm = () => {
     };
 
     checkSubscription();
-  }, [accessToken, refreshToken, refreshAccessToken]); // Add refreshAccessToken to dependencies
+  }, [accessToken, refreshAccessToken]);
 
   const handleCheckout = async () => {
     if (!isSubscribed) {
@@ -146,7 +166,7 @@ const CheckoutForm = () => {
           {
             method: "POST",
             headers: {
-              // Add any necessary headers, such as Authorization for authenticated requests if needed
+              // Add any necessary headers if needed
             },
           }
         );
@@ -165,7 +185,6 @@ const CheckoutForm = () => {
         }
 
         const stripe = await stripePromise;
-
         if (!stripe) {
           throw new Error("Stripe has not loaded yet.");
         }
