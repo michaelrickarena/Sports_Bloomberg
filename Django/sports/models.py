@@ -368,11 +368,12 @@ class Scores(models.Model):
 
 class UserSubscription(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)  # Link to the user
-    stripe_subscription_id = models.CharField(max_length=255, unique=True, null=True, blank=True)  # Stripe subscription (optional until payment)
-    status = models.CharField(max_length=50, default='trial')  # Subscription status (trial, active, inactive)
-    trial_start_date = models.DateTimeField(default=now)  # Automatically set trial start
-    expiration_date = models.DateTimeField(null=True, blank=True)  # When the subscription expires
-    cancel_date = models.DateTimeField(null=True, blank=True)  # If the user cancels the subscription
+    stripe_subscription_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    stripe_customer_id = models.CharField(max_length=255, unique=True, null=True, blank=True)  # NEW FIELD
+    status = models.CharField(max_length=50, default='trial')
+    trial_start_date = models.DateTimeField(default=now)
+    expiration_date = models.DateTimeField(null=True, blank=True)
+    cancel_date = models.DateTimeField(null=True, blank=True)
 
     def set_trial_period(self):
         """Automatically set a 7-day trial expiration when the subscription is created."""

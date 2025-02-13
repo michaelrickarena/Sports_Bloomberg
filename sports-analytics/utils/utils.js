@@ -21,9 +21,10 @@ export const getColorForBookie = (bookie) => {
     Caesars: "#31DFF7",
     BetMGM: "#8B1388",
     "LowVig.ag": "#9A837E",
-    "BetOnline.ag": "#FCFC5A",
+    "BetOnline.ag": "#DFDA03",
     Bovada: "#000000",
     BetUS: "#FFA500",
+    Fanatics: "#ADFF5B",
   };
 
   return colors[bookie] || "#000000"; // Default to black if bookie color is not defined
@@ -38,10 +39,11 @@ export const getColorForBookieProp = (bookie) => {
     Caesars: "#31DFF7",
     BetMGM: "#8B1388",
     "LowVig.ag": "#9A837E",
-    "BetOnline.ag": "#FCFC5A",
+    "BetOnline.ag": "#DFDA03",
     Bovada: "#000000",
     BetUS: "#FFA500",
-    WilliamHill: "#ffA500",
+    Fanatics: "#ADFF5B",
+    WilliamHill: "#1B02AE",
   };
 
   // Bookie name mappings for props
