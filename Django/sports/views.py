@@ -44,6 +44,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth import get_user_model
 import jwt
+from django.contrib.auth import login  # Import login function
 
 load_dotenv()
 
@@ -577,6 +578,7 @@ def success(request):
 
 def cancel(request):
     return render(request, 'cancel.html')  # Create this template
+
 @csrf_exempt
 def stripe_webhook(request):
     payload = request.body
@@ -769,7 +771,6 @@ def register_and_get_jwt(request):
             'access': str(access_token),
         })
 
-
 @api_view(['POST'])
 def login_and_get_jwt(request):
     username = request.data.get('username')
@@ -784,12 +785,30 @@ def login_and_get_jwt(request):
     if user is None:
         return Response({"error": "Invalid username or password."}, status=401)
 
+    # Log the user in (this triggers `user_logged_in` signal)
+    login(request, user)
+    
+    # Check subscription status
+    subscription = UserSubscription.objects.filter(user=user).first()
+    if subscription:
+        logger.info(f"Subscription found for {user.username}, expiration date: {subscription.expiration_date}")
+        
+        # If subscription expired, mark as inactive
+        if subscription.expiration_date and subscription.expiration_date < timezone.now():
+            subscription.status = 'inactive'
+            subscription.save()
+            logger.info(f"Subscription expired for {user.username}. Status set to inactive.")
+    else:
+        logger.info(f"No subscription found for {user.username}")
+    
     # Generate JWT tokens
     refresh = RefreshToken.for_user(user)
-    
-    # Set JWT tokens as cookies in the response
+
+    # Set JWT tokens as cookies
     response = JsonResponse({
         'message': 'Login successful',
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
     })
     response.set_cookie('refresh_token', str(refresh), httponly=True, secure=True, samesite='Lax')
     response.set_cookie('access_token', str(refresh.access_token), httponly=True, secure=True, samesite='Lax')
@@ -823,3 +842,36 @@ def check_subscription(request):
         raise AuthenticationFailed("Authentication credentials were not provided or token expired.")
     except UserSubscription.DoesNotExist:
         return Response({"error": "No subscription found for the user."}, status=404)
+    
+
+
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])  # Uses JWT for authentication
+@permission_classes([IsAuthenticated])  # Ensures user is logged in
+def cancel_subscription(request):
+    """Cancels the user's active subscription."""
+    try:
+        # Get the user's subscription
+        subscription = UserSubscription.objects.filter(user=request.user, status="active").first()
+
+        if not subscription:
+            return JsonResponse({"error": "No active subscription found."}, status=400)
+
+        # Cancel the Stripe subscription
+        stripe.Subscription.modify(subscription.stripe_subscription_id, cancel_at_period_end=True)
+
+        # Update the subscription status in the database
+        subscription.status = "cancelling"  # Indicate that it's scheduled to cancel
+        subscription.save()
+
+        logger.info(f"User {request.user.username} scheduled subscription cancellation.")
+
+        return JsonResponse({"message": "Subscription cancellation scheduled."})
+    
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error during cancellation: {str(e)}")
+        return JsonResponse({"error": "Failed to cancel subscription. Try again."}, status=500)
+    
+    except Exception as e:
+        logger.error(f"Error cancelling subscription: {str(e)}")
+        return JsonResponse({"error": "An unexpected error occurred."}, status=500)

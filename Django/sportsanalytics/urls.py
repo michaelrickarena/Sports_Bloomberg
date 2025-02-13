@@ -19,11 +19,11 @@ from django.urls import path, include
 from sports.views import (
     MoneylineListView, MoneylineChartDataView, OverunderListView, PropsListView, ScoresListView, 
     SpreadsListView, UpcomingGamesListView, OverunderChartDataView, PropsChartDataView, SpreadsChartDataView, 
-    latest_MoneylineListView, latest_OverunderListView, latest_PropsListView, latest_SpreadsListView, DistinctPropsListView
+    latest_MoneylineListView, latest_OverunderListView, latest_PropsListView, latest_SpreadsListView, DistinctPropsListView, 
+    create_checkout_session, cancel, success, stripe_webhook, login_and_get_jwt, cancel_subscription
 )
 from django.http import HttpResponse
 from sports import views
-from sports.views import create_checkout_session, cancel, success, stripe_webhook, login_and_get_jwt
 from django.contrib.auth import views as auth_views
 from sports.views import register_and_get_jwt
 from rest_framework_simplejwt.views import (
@@ -53,6 +53,7 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/login/', login_and_get_jwt, name='login_and_get_jwt'),
     path('api/register_and_get_jwt/', register_and_get_jwt, name='register_and_get_jwt'),
+    path("api/cancel-subscription/", cancel_subscription, name="cancel-subscription"),
 
 
     # List Views

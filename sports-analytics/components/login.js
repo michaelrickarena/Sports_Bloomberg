@@ -15,7 +15,7 @@ const Login = () => {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/token/`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/login/`, // Corrected this line
         {
           method: "POST",
           headers: {
@@ -25,7 +25,6 @@ const Login = () => {
           credentials: "include", // Add this line to include cookies in the request
         }
       );
-
       const data = await response.json();
 
       if (response.ok && data.access && data.refresh) {
