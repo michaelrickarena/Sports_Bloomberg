@@ -12,7 +12,7 @@
 }
 
 .navItem {
-  margin-right: 1rem;
+  margin-right: 20px; /* Space between items */
   position: relative;
   cursor: pointer;
 }
@@ -45,7 +45,5 @@
 }
 
 .rightAlign {
-  margin-left: auto;
-  display: flex;
-  gap: 1rem; /* Adjust spacing between Sign In and Sign Up as needed */
+  margin-left: auto; /* Pushes items to the right */
 }

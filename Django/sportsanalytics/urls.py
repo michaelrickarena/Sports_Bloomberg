@@ -42,7 +42,7 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
     path('accounts/register/', views.register, name='register'),
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
-    path('create-checkout-session/', create_checkout_session, name='create-checkout-session'),
+    path('api/create-checkout-session/', create_checkout_session, name='create-checkout-session'),
     path('success/', views.success, name='success'),
     path('cancel/', views.cancel, name='cancel'),  # Cancel page route
     path('webhook/', stripe_webhook, name='stripe-webhook'),

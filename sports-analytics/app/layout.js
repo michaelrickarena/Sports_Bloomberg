@@ -9,20 +9,33 @@ import "../styles/globals.css";
 export default function Layout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // Track login status
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
+    // Log all available cookies
+    console.log("All Cookies:", document.cookie);
 
-    // Set login status based on presence of token
-    setIsLoggedIn(!!token);
+    // Check for both access_token and refresh_token in cookies
+    const accessToken = Cookies.get("access_token");
+    const refreshToken = Cookies.get("refresh_token");
 
-    // Define public paths that should be accessible without authentication
+    console.log("Access Token:", accessToken);
+    console.log("Refresh Token:", refreshToken);
+
+    // Set login state based on presence of both tokens
+    const isUserLoggedIn = !!accessToken && !!refreshToken;
+    setIsLoggedIn(isUserLoggedIn);
+
+    console.log("User logged in:", isUserLoggedIn);
+
     const publicPaths = ["/login", "/register", "/", "/checkout"];
 
-    // If not logged in and accessing a protected route, redirect to login
-    if (!token && !publicPaths.includes(pathname)) {
+    // If no token and user is not on a public path, redirect to login
+    if (!isUserLoggedIn && !publicPaths.includes(pathname)) {
+      console.log("No valid token, redirecting to /login...");
       router.replace("/login");
+    } else {
+      console.log("User is logged in or on a public path.");
     }
   }, [pathname, router]);
 

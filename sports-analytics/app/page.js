@@ -29,17 +29,22 @@ const HomePage = () => {
 
         <section>
           <p className={styles.firstpara}>
-            At SmartLines, we bring you powerful insights to elevate your sports
-            betting experience. Are mission is to bring data analytics to
-            everyday bettors at a low cost. With our analysis you will be able
-            to determine which bookies to make your bets with, but also when is
-            the right time to make your bet through following trends through
-            examining how sharps are effecting each bookies lines. Whether
-            you’re a seasoned bettor or just getting started, our platform
-            provides you with comprehensive data on <strong>Moneylines</strong>,{" "}
+            At SmartLines, we empower your sports betting experience with
+            advanced data analytics and actionable insights—all at an affordable
+            price. Our mission is to equip everyday bettors with the same
+            sophisticated analysis used by the pros, so you can pinpoint the
+            best bookmakers and the optimal moments to place your bets by
+            tracking market trends and the influence of sharp money on betting
+            lines. Very soon we will introduce our new arbitrage monitoring
+            feature. This functionality allows you to log your active bets and
+            receive real-time notifications when an arbitrage opportunity
+            arises—matched to the return threshold you set. Whether you’re a
+            seasoned bettor or just starting out, SmartLines provides
+            comprehensive data on <strong>Moneylines</strong>,{" "}
             <strong>Spreads</strong>, <strong>Over/Unders</strong>, and{" "}
-            <strong>Player Props</strong> for the NFL, NBA, MLB, and NHL - we
-            intend to keep integrate more sports. Additionally,
+            <strong>Player Props</strong> for the NFL, NBA, MLB, and NHL, with
+            plans to expand into even more sports. Let SmartLines be your guide
+            to smarter, more strategic betting.
           </p>
 
           <h3>How It Works</h3>
@@ -52,7 +57,7 @@ const HomePage = () => {
                 options. It simply reflects the odds for a team to win. If you
                 bet on the Moneyline, you’re picking which team will win
                 outright, with no need to worry about the point spread. We
-                provide you with up-to-date and hisotrical Moneyline odds from
+                provide you with up-to-date and historical Moneyline odds from
                 various bookies, helping you identify the best value and
                 opportunities for profitable bets. Our graphs are currently used
                 for trend and technical analysis

@@ -73,7 +73,7 @@ button {
   font-weight: bold; /* Bold text for emphasis */
   cursor: pointer; /* Pointer cursor */
   transition: background-color 0.3s ease, box-shadow 0.3s ease; /* Smooth hover effects */
-  margin-bottom: 15px;
+  margin-bottom: 5px;
 }
 
 button:hover {

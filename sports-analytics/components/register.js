@@ -1,18 +1,24 @@
-"use client"; // Add this line at the top of the file to mark this component as a client component
+"use client";
 
 import { useState } from "react";
-import "../styles/login.css"; // Import the CSS file without assigning it to a variable
+import "../styles/login.css";
 
 const Register = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [email, setEmail] = useState(""); // New state for email
+  const [email, setEmail] = useState("");
+
+  const setCookie = (name, value, days) => {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;Secure;SameSite=Strict`;
+  };
 
   const handleRegister = async (event) => {
     event.preventDefault();
 
     const response = await fetch(
-      "http://127.0.0.1:8000/api/register_and_get_jwt/",
+      `${process.env.NEXT_PUBLIC_API_BASE_URL}/register_and_get_jwt/`,
       {
         method: "POST",
         headers: {
@@ -21,7 +27,7 @@ const Register = () => {
         body: JSON.stringify({
           username: username,
           password: password,
-          email: email, // Include the email in the request body
+          email: email,
         }),
       }
     );
@@ -29,10 +35,11 @@ const Register = () => {
     const data = await response.json();
 
     if (response.ok) {
-      // Save the token in localStorage
-      localStorage.setItem("access_token", data.access);
+      // Save access and refresh tokens as cookies
+      setCookie("access_token", data.access, 1); // Expires in 1 day
+      setCookie("refresh_token", data.refresh, 30); // Expires in 30 days
 
-      // Redirect to the homepage or dashboard
+      // Redirect to homepage or dashboard
       window.location.href = "/";
     } else {
       console.error("Registration failed:", data);

@@ -695,6 +695,7 @@ def get_user_by_stripe_id(stripe_customer_id):
         logger.error(f"User with Stripe customer ID {stripe_customer_id} not found")
         return None
     
+
 @api_view(['POST'])
 def register_and_get_jwt(request):
     if request.method == 'POST':
@@ -704,7 +705,6 @@ def register_and_get_jwt(request):
         username = request.data.get('username')
         email = request.data.get('email')
         password = request.data.get('password')
-
         print(f"Received data - Username: {username}, Email: {email}")
 
         # Check if all fields are provided
@@ -717,16 +717,24 @@ def register_and_get_jwt(request):
             print(f"Email {email} is already taken.")
             return Response({"error": "Email is already taken."}, status=400)
 
-        # Create the user
+        # Create or get the user
         try:
             print("Creating user...")
-            user = User.objects.create_user(username=username, email=email, password=password)
-            print(f"User created: {user.username}")
+            user, created = User.objects.get_or_create(
+                username=username,
+                defaults={'email': email, 'password': password}
+            )
+            if created:
+                user.set_password(password)  # Set password for new user
+                user.save()
+                print(f"User created: {user.username}")
+            else:
+                print(f"User {username} already exists, proceeding...")
         except Exception as e:
             print(f"Error creating user: {str(e)}")
             return Response({"error": "User creation failed."}, status=500)
 
-        # Now, create Stripe customer
+        # Create Stripe customer
         try:
             print(f"Creating Stripe customer for email: {email}")
             stripe_customer = stripe.Customer.create(
@@ -734,33 +742,36 @@ def register_and_get_jwt(request):
                 description=f"Customer for {username}",
             )
             print(f"Stripe customer created: {stripe_customer}")
+            stripe_customer_id = stripe_customer.get("id")
+            if not stripe_customer_id:
+                print("Stripe customer creation failed. Missing Stripe customer ID.")
+                return Response({"error": "Stripe customer creation failed."}, status=400)
+            print(f"Stripe customer ID: {stripe_customer_id}")
         except Exception as e:
             print(f"Error creating Stripe customer: {str(e)}")
             return Response({"error": "Stripe customer creation failed."}, status=400)
 
-        if not stripe_customer.get("id"):
-            print("Stripe customer creation failed. Missing Stripe customer ID.")
-            return Response({"error": "Stripe customer creation failed."}, status=400)
-
-        print(f"Stripe customer ID: {stripe_customer['id']}")
-
-        #this is the customer id, not the subscription id
-        stripe_customer_id = stripe_customer.get("id")
-
-        # Now create the user subscription record
+        # Create or update user subscription
         try:
-            print(f"Creating user subscription for user: {user.username}")
-            user_subscription = UserSubscription.objects.create(
-                user=user,  # Link the user to the subscription
-                stripe_customer_id=stripe_customer_id,  # Save the customer ID here
-                status='active'
+            print(f"Creating/updating user subscription for user: {user.username}")
+            subscription, sub_created = UserSubscription.objects.get_or_create(
+                user=user,
+                defaults={
+                    'stripe_customer_id': stripe_customer_id,
+                    'status': 'active'
+                }
             )
-            print(f"User subscription created successfully: {stripe_customer_id}")
+            if not sub_created:
+                print(f"Subscription exists for {user.username}, updating Stripe ID")
+                subscription.stripe_customer_id = stripe_customer_id
+                subscription.status = 'active'
+                subscription.save()
+            print(f"User subscription handled successfully: {subscription.stripe_customer_id}")
         except Exception as e:
-            print(f"Error creating user subscription: {str(e)}")
+            print(f"Error handling user subscription: {str(e)}")
             return Response({"error": "User subscription creation failed."}, status=500)
 
-        # Create JWT token for the user after subscription is created
+        # Create JWT token
         print("Creating JWT token for user.")
         refresh = RefreshToken.for_user(user)
         access_token = refresh.access_token
@@ -770,7 +781,7 @@ def register_and_get_jwt(request):
             'refresh': str(refresh),
             'access': str(access_token),
         })
-
+    
 @api_view(['POST'])
 def login_and_get_jwt(request):
     username = request.data.get('username')
@@ -804,14 +815,30 @@ def login_and_get_jwt(request):
     # Generate JWT tokens
     refresh = RefreshToken.for_user(user)
 
-    # Set JWT tokens as cookies
+    # Set JWT tokens as cookies with expiration time (1 day)
     response = JsonResponse({
         'message': 'Login successful',
         'access': str(refresh.access_token),
         'refresh': str(refresh),
     })
-    response.set_cookie('refresh_token', str(refresh), httponly=True, secure=True, samesite='Lax')
-    response.set_cookie('access_token', str(refresh.access_token), httponly=True, secure=True, samesite='Lax')
+    response.set_cookie(
+        'refresh_token', 
+        str(refresh), 
+        httponly=True, 
+        secure=False,  # For production, make sure to use secure=True (HTTPS)
+        samesite='None', 
+        max_age=86400,
+
+    )
+    response.set_cookie(
+        'access_token', 
+        str(refresh.access_token), 
+        httponly=True, 
+        secure=False,  # For production, make sure to use secure=True (HTTPS)
+        samesite='None', 
+        max_age=86400,
+
+    )
 
     return response
 

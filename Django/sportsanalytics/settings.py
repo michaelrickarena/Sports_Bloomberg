@@ -35,7 +35,7 @@ SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['10.0.0.29', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['10.0.0.29', 'localhost', '127.0.0.1', "192.168.2.46"]
 
 
 # Application definition
@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'rest_framework_simplejwt',
+    'django_extensions',
 ]
 
 REST_FRAMEWORK = {
@@ -210,6 +211,21 @@ LOGOUT_REDIRECT_URL = '/'  # Redirect to home page after logout
 CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:3000', "http://192.168.2.46:3000"]
 
 CORS_ALLOW_CREDENTIALS = True
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SAMESITE = 'Lax'  # or 'Strict'
+
+
+
+CSRF_COOKIE_SECURE = True   # Ensures CSRF cookie is only sent over HTTPS
+SESSION_COOKIE_SECURE = True  # Ensures session cookie is only sent over HTTPS
+ACCESS_TOKEN_COOKIE_SECURE = True  # Custom setting if using token-based auth
+REFRESH_TOKEN_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = "None"
+SESSION_COOKIE_SAMESITE = "None"
+
+
+# email auth
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')

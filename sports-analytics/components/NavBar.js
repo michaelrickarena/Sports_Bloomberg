@@ -1,52 +1,38 @@
-"use client"; // Add this line at the top of the file to mark this component as a client component
+"use client";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // Import the router
-import { usePathname } from "next/navigation"; // For detecting route changes (alternative to useRouter)
+import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import Cookies from "js-cookie";
 import styles from "../styles/NavBar.module.css";
 
 const NavBar = () => {
   const router = useRouter();
-  const pathname = usePathname(); // Get the current path
+  const pathname = usePathname();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showDropdownNHL, setShowDropdownNHL] = useState(false);
   const [showDropdownMLB, setShowDropdownMLB] = useState(false);
   const [showDropdownNBA, setShowDropdownNBA] = useState(false);
   const [showDropdownAnalytics, setShowDropdownAnalytics] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // State to track login status
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Check login status on component mount and when route changes
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      setIsLoggedIn(true); // User is logged in
-    } else {
-      setIsLoggedIn(false); // User is not logged in
-    }
-  }, [pathname]); // Re-run useEffect when the route changes
+    const token = Cookies.get("access_token");
+    setIsLoggedIn(!!token);
+  }, [pathname]);
 
   const handleLogout = () => {
-    // Remove the tokens from localStorage
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-
-    // Update the login status
+    Cookies.remove("access_token");
+    Cookies.remove("refresh_token");
     setIsLoggedIn(false);
-
-    // Redirect to login page
-    router.push("/login"); // Redirect user to login page after logout
+    router.push("/login");
   };
 
   const handleLogin = () => {
-    // Manually update the login state when the user logs in
     setIsLoggedIn(true);
-
-    // Store the token in localStorage
-    localStorage.setItem("access_token", "your_access_token");
-
-    // Optionally, redirect after login
-    router.push("/"); // Or route to a dashboard/home page after login
+    Cookies.set("access_token", "your_access_token", { expires: 1 });
+    router.push("/");
   };
 
   return (
@@ -181,10 +167,17 @@ const NavBar = () => {
 
         {/* User Authentication Links */}
         {isLoggedIn ? (
-          // Logged In - Show Logout
-          <li className={`${styles.navItem} ${styles.rightAlign}`}>
-            <button onClick={handleLogout}>Logout</button>
-          </li>
+          <>
+            <li className={`${styles.navItem} ${styles.rightAlign}`}>
+              <Link href="/checkout">Subscribe</Link>{" "}
+            </li>
+            <li className={`${styles.navItem}`}>
+              <Link href="/" onClick={handleLogout}>
+                Logout
+              </Link>{" "}
+              {/* Use Link for logout */}
+            </li>
+          </>
         ) : (
           // Not Logged In - Show Sign In and Sign Up
           <>
