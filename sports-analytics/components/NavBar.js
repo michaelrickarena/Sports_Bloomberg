@@ -169,13 +169,15 @@ const NavBar = () => {
         {isLoggedIn ? (
           <>
             <li className={`${styles.navItem} ${styles.rightAlign}`}>
-              <Link href="/checkout">Subscribe</Link>{" "}
+              <Link href="/checkout">Subscribe</Link>
+            </li>
+            <li className={styles.navItem}>
+              <Link href="/account">Account</Link> {/* New Item */}
             </li>
             <li className={`${styles.navItem}`}>
               <Link href="/" onClick={handleLogout}>
                 Logout
-              </Link>{" "}
-              {/* Use Link for logout */}
+              </Link>
             </li>
           </>
         ) : (

@@ -1,24 +1,73 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+// Function to get access token from cookies
+const getAccessToken = () => {
+  return document.cookie
+    .split("; ")
+    .find((row) => row.startsWith("access_token="))
+    ?.split("=")[1];
+};
 
 const CancelSubscription = () => {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [expirationDate, setExpirationDate] = useState(null);
+
+  // Fetch subscription details on mount
+  useEffect(() => {
+    const fetchSubscriptionDetails = async () => {
+      const accessToken = getAccessToken();
+      if (!accessToken) {
+        console.error("No access token found");
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE_URL}/subscription-details/`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+            credentials: "include",
+          }
+        );
+
+        const data = await response.json();
+
+        if (response.ok && data.expiration_date) {
+          setExpirationDate(data.expiration_date);
+        } else {
+          setExpirationDate("No active subscription");
+        }
+      } catch (error) {
+        console.error("Failed to fetch subscription details", error);
+        setExpirationDate("Error fetching subscription details");
+      }
+    };
+
+    fetchSubscriptionDetails();
+  }, []);
 
   const handleCancelSubscription = async () => {
     setLoading(true);
     setMessage("");
 
+    const accessToken = getAccessToken(); // Get token from cookies
+
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/cancel-subscription/`, // Ensure correct API route
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/cancel-subscription/`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`, // Attach token
           },
-          credentials: "include", // Send cookies automatically
+          credentials: "include", // Still send cookies
         }
       );
 
@@ -38,7 +87,9 @@ const CancelSubscription = () => {
 
   return (
     <div>
-      <h3>Manage Subscription</h3>
+      <p>
+        Your subscription expires on: <b>{expirationDate || "Loading..."}</b>
+      </p>
       <button
         onClick={handleCancelSubscription}
         disabled={loading}

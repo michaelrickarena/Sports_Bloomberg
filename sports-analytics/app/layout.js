@@ -28,7 +28,13 @@ export default function Layout({ children }) {
 
     console.log("User logged in:", isUserLoggedIn);
 
-    const publicPaths = ["/login", "/register", "/", "/checkout"];
+    const publicPaths = [
+      "/login",
+      "/verify-email",
+      "/register",
+      "/",
+      "/checkout",
+    ];
 
     // If no token and user is not on a public path, redirect to login
     if (!isUserLoggedIn && !publicPaths.includes(pathname)) {

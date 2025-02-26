@@ -45,10 +45,15 @@ from rest_framework.exceptions import AuthenticationFailed
 from django.contrib.auth import get_user_model
 import jwt
 from django.contrib.auth import login  # Import login function
+from sports.users.utils import generate_email_verification_token
+from django.utils.http import urlsafe_base64_decode
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
 
 load_dotenv()
 
 STRIPE_DOMAIN = os.getenv('STRIPE_DOMAIN')
+FRONT_END_DOMAIN = os.getenv('FRONT_END_DOMAIN')
 
 logger = logging.getLogger("logsport")
 
@@ -694,7 +699,17 @@ def get_user_by_stripe_id(stripe_customer_id):
     except UserSubscription.DoesNotExist:
         logger.error(f"User with Stripe customer ID {stripe_customer_id} not found")
         return None
+
+
+def send_verification_email(request, user, uid, token):
+    # Point to your front-end verification URL
+    verification_url = f"{FRONT_END_DOMAIN}verify-email?uid={uid}&token={token}"
     
+    subject = "Verify Your Email"
+    message = f"Click the link below to verify your email:\n\n{verification_url}"
+    
+    send_mail(subject, message, "smartlinesinbox@gmail.com", [user.email])
+
 
 @api_view(['POST'])
 def register_and_get_jwt(request):
@@ -726,6 +741,7 @@ def register_and_get_jwt(request):
             )
             if created:
                 user.set_password(password)  # Set password for new user
+                user.is_active = False  # Set the user as inactive until email verification
                 user.save()
                 print(f"User created: {user.username}")
             else:
@@ -734,7 +750,7 @@ def register_and_get_jwt(request):
             print(f"Error creating user: {str(e)}")
             return Response({"error": "User creation failed."}, status=500)
 
-        # Create Stripe customer
+        # Create Stripe customer (optional)
         try:
             print(f"Creating Stripe customer for email: {email}")
             stripe_customer = stripe.Customer.create(
@@ -771,17 +787,18 @@ def register_and_get_jwt(request):
             print(f"Error handling user subscription: {str(e)}")
             return Response({"error": "User subscription creation failed."}, status=500)
 
-        # Create JWT token
-        print("Creating JWT token for user.")
-        refresh = RefreshToken.for_user(user)
-        access_token = refresh.access_token
-        print("JWT token created successfully.")
+        # Generate email verification token and send email
+        uid, token = generate_email_verification_token(user)
+        send_verification_email(request, user, uid, token)
 
+        # Create JWT token (but don't log them in yet)
+        print("JWT token creation skipped for inactive user.")
+        
         return Response({
-            'refresh': str(refresh),
-            'access': str(access_token),
+            'message': 'Please check your email to verify your account.',
         })
     
+
 @api_view(['POST'])
 def login_and_get_jwt(request):
     username = request.data.get('username')
@@ -795,6 +812,10 @@ def login_and_get_jwt(request):
     user = authenticate(username=username, password=password)
     if user is None:
         return Response({"error": "Invalid username or password."}, status=401)
+
+    # Check if the user is active (email verification)
+    if not user.is_active:
+        return Response({"error": "Account is not active. Please verify your email."}, status=400)
 
     # Log the user in (this triggers `user_logged_in` signal)
     login(request, user)
@@ -828,7 +849,6 @@ def login_and_get_jwt(request):
         secure=False,  # For production, make sure to use secure=True (HTTPS)
         samesite='None', 
         max_age=86400,
-
     )
     response.set_cookie(
         'access_token', 
@@ -837,10 +857,10 @@ def login_and_get_jwt(request):
         secure=False,  # For production, make sure to use secure=True (HTTPS)
         samesite='None', 
         max_age=86400,
-
     )
 
     return response
+
 
 @api_view(['GET'])
 @authentication_classes([JWTAuthentication])
@@ -902,3 +922,62 @@ def cancel_subscription(request):
     except Exception as e:
         logger.error(f"Error cancelling subscription: {str(e)}")
         return JsonResponse({"error": "An unexpected error occurred."}, status=500)
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def get_subscription_details(request):
+    """Returns the user's subscription details, including expiration date."""
+    try:
+        # Fetch the most recent subscription (active or expired)
+        subscription = UserSubscription.objects.filter(user=request.user).order_by('-expiration_date').first()
+
+        if not subscription:
+            return JsonResponse({"message": "No subscription found.", "expiration_date": None})
+
+        return JsonResponse({
+            "message": "Subscription details retrieved.",
+            "expiration_date": subscription.expiration_date.strftime("%Y-%m-%d") if subscription.expiration_date else None
+        })
+
+    except Exception as e:
+        logger.error(f"Error fetching subscription details: {str(e)}")
+        return JsonResponse({"error": "An unexpected error occurred."}, status=500)
+
+
+
+@api_view(['POST'])
+def verify_email(request):
+    # Debugging: Log the raw request body
+    print(f"Raw request body: {request.body}")
+
+    # Parse JSON data from request
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return Response({"error": "Invalid JSON in request body."}, status=400)
+
+    # Extract uid and token from request data
+    uid = data.get('uid')
+    token = data.get('token')
+
+    # Debugging: Log the extracted uid and token
+    print(f"Extracted UID: {uid}, Extracted Token: {token}")
+
+    if not uid or not token:
+        return Response({"error": "Invalid verification link."}, status=400)
+
+    try:
+        # Decode the UID and fetch the user
+        uid = urlsafe_base64_decode(uid).decode()
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return Response({"error": "Invalid verification link."}, status=400)
+
+    # Validate the token
+    if default_token_generator.check_token(user, token):
+        user.is_active = True  # Activate the user
+        user.save()
+        return Response({"message": "Email verified successfully."})
+    else:
+        return Response({"error": "Invalid token."}, status=400)

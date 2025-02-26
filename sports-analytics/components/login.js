@@ -45,7 +45,10 @@ const Login = () => {
         router.push("/");
       } else {
         console.log("[LOGIN COMPONENT] Login failed:", data.detail);
-        setError(data.detail || "Login failed. Please check your credentials.");
+        setError(
+          data.detail ||
+            "Login failed. Please check your credentials or verify your email."
+        );
       }
     } catch (error) {
       setError("An error occurred. Please try again later.");
@@ -56,6 +59,7 @@ const Login = () => {
   return (
     <>
       <h3>Welcome to the Login Page</h3>
+      <h4>Logging into your account is required to use this software.</h4>
       <form onSubmit={handleLogin} className="form-container">
         <input
           type="text"

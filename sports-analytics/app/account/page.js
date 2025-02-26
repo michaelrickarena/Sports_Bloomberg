@@ -3,7 +3,7 @@ import CancelSubscription from "../../components/CancelSubscription";
 const AccountSettings = () => {
   return (
     <div>
-      <h2>Account Settings</h2>
+      <h2>Manage Your Subscription</h2>
       <CancelSubscription />
     </div>
   );

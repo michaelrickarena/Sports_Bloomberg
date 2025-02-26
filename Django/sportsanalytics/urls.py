@@ -20,7 +20,7 @@ from sports.views import (
     MoneylineListView, MoneylineChartDataView, OverunderListView, PropsListView, ScoresListView, 
     SpreadsListView, UpcomingGamesListView, OverunderChartDataView, PropsChartDataView, SpreadsChartDataView, 
     latest_MoneylineListView, latest_OverunderListView, latest_PropsListView, latest_SpreadsListView, DistinctPropsListView, 
-    create_checkout_session, cancel, success, stripe_webhook, login_and_get_jwt, cancel_subscription
+    create_checkout_session, cancel, success, stripe_webhook, login_and_get_jwt, cancel_subscription, verify_email, get_subscription_details
 )
 from django.http import HttpResponse
 from sports import views
@@ -54,6 +54,8 @@ urlpatterns = [
     path('api/login/', login_and_get_jwt, name='login_and_get_jwt'),
     path('api/register_and_get_jwt/', register_and_get_jwt, name='register_and_get_jwt'),
     path("api/cancel-subscription/", cancel_subscription, name="cancel-subscription"),
+    path('api/verify-email/', verify_email),  # Add this line for email verification
+    path('api/subscription-details/', get_subscription_details),  # Add this line for email verification
 
 
     # List Views
