@@ -31,17 +31,22 @@ export default function Layout({ children }) {
       "/register",
       "/",
       "/checkout",
+      "/password-reset",
+      "/password-reset-confirm", // Base path for dynamic route
     ];
+
+    // Check if the current pathname starts with any public path
+    const isPublicPath = publicPaths.some((path) => pathname.startsWith(path));
 
     // Restrict access if the user is inactive or not logged in
     if (
       (!isUserLoggedIn || subscriptionStatus === "inactive") &&
-      !publicPaths.includes(pathname)
+      !isPublicPath
     ) {
       console.log("Access restricted: Redirecting to /login...");
       router.replace("/login");
     } else {
-      console.log("User is logged in and has access.");
+      console.log("User is logged in or on a public path. Access granted.");
     }
   }, [pathname, router]);
 

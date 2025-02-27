@@ -20,7 +20,9 @@ from sports.views import (
     MoneylineListView, MoneylineChartDataView, OverunderListView, PropsListView, ScoresListView, 
     SpreadsListView, UpcomingGamesListView, OverunderChartDataView, PropsChartDataView, SpreadsChartDataView, 
     latest_MoneylineListView, latest_OverunderListView, latest_PropsListView, latest_SpreadsListView, DistinctPropsListView, 
-    create_checkout_session, cancel, success, stripe_webhook, login_and_get_jwt, cancel_subscription, verify_email, get_subscription_details
+    create_checkout_session, cancel, success, stripe_webhook, login_and_get_jwt, cancel_subscription, verify_email, get_subscription_details,
+    password_reset_request, password_reset_confirm
+
 )
 from django.http import HttpResponse
 from sports import views
@@ -47,6 +49,9 @@ urlpatterns = [
     path('cancel/', views.cancel, name='cancel'),  # Cancel page route
     path('webhook/', stripe_webhook, name='stripe-webhook'),
     path('api/check-subscription', views.check_subscription, name='check_subscription'),
+
+    path('api/reset-password/', views.password_reset_request, name='password_reset_request'),
+    path('api/reset-password/<uidb64>/<token>/', views.password_reset_confirm, name='password_reset_confirm'),
 
     #jwt
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

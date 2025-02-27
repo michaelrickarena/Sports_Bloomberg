@@ -79,7 +79,7 @@ const Login = () => {
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          placeholder="Username"
+          placeholder="Username or Email"
           required
           className="input-field"
         />
@@ -92,6 +92,17 @@ const Login = () => {
           className="input-field"
         />
         {error && <p className="error-message">{error}</p>}
+
+        {/* Forgot Password Link */}
+        <div className="forgot-password-container">
+          <a
+            href="/password-reset/" // Directs user to the reset password request page
+            className="forgot-password-link"
+          >
+            Forgot your password?
+          </a>
+        </div>
+
         <button type="submit" className="submit-button">
           Login
         </button>

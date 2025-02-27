@@ -46,7 +46,7 @@ from django.contrib.auth import get_user_model
 import jwt
 from django.contrib.auth import login  # Import login function
 from sports.users.utils import generate_email_verification_token
-from django.utils.http import urlsafe_base64_decode
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 
@@ -705,10 +705,23 @@ def send_verification_email(request, user, uid, token):
     # Point to your front-end verification URL
     verification_url = f"{FRONT_END_DOMAIN}verify-email?uid={uid}&token={token}"
     
-    subject = "Verify Your Email"
-    message = f"Click the link below to verify your email:\n\n{verification_url}"
+    subject = "Verify Your Email - SmartLines"
+    message = (
+        f"Welcome to SmartLines, {user.username}!\n\n"
+        "Thank you for signing up — you're just one step away from unlocking the best betting insights.\n\n"
+        "Click the link below to verify your email and activate your account:\n\n"
+        f"{verification_url}\n\n"
+        "If you have any questions, feel free to reply to this email — we're happy to help.\n\n"
+        "The SmartLines Team"
+    )
     
-    send_mail(subject, message, "smartlinesinbox@gmail.com", [user.email])
+    send_mail(
+        subject, 
+        message, 
+        "SmartLines <smartlinesinbox@gmail.com>",  # More branded sender
+        [user.email]
+    )
+
 
 
 @api_view(['POST'])
@@ -801,21 +814,32 @@ def register_and_get_jwt(request):
 
 @api_view(['POST'])
 def login_and_get_jwt(request):
-    username = request.data.get('username')
+    login_identifier = request.data.get('username')  # Could be either username or email
     password = request.data.get('password')
 
-    if not username or not password:
-        return Response({"error": "Username and password are required."}, status=400)
+    if not login_identifier or not password:
+        return Response({"error": "Username or email and password are required."}, status=400)
 
-    user = authenticate(username=username, password=password)
-    if user is None:
-        return Response({"error": "Invalid username or password."}, status=401)
+    # Try to identify whether it's a username or email
+    if '@' in login_identifier:  # This is likely an email address
+        try:
+            user = User.objects.get(email=login_identifier)
+        except User.DoesNotExist:
+            return Response({"error": "Invalid username or email or password."}, status=401)
+    else:
+        user = authenticate(username=login_identifier, password=password)
+        if user is None:
+            return Response({"error": "Invalid username or password."}, status=401)
+
+    # If authentication fails
+    if not user.check_password(password):
+        return Response({"error": "Invalid username or email or password."}, status=401)
 
     if not user.is_active:
         return Response({"error": "Account is not active. Please verify your email."}, status=400)
 
     login(request, user)
-    
+
     # Check subscription status
     subscription_status = "inactive"  # Default status if no subscription found
 
@@ -867,7 +891,7 @@ def check_subscription(request):
         if subscription.status == 'inactive' and timezone.now() > trial_end_date:
             return Response({"status": "expired", "message": "Trial expired. Please subscribe."})
 
-        if subscription.status == 'active' and subscription.expiration_date and timezone.now() < subscription.expiration_date:
+        if subscription.status == 'active' or subscription.status == 'cancelling' and subscription.expiration_date and timezone.now() < subscription.expiration_date:
             return Response({"status": "active", "message": "Subscription is active."})
 
         return Response({"status": "inactive", "message": "Subscription is inactive."})
@@ -970,4 +994,52 @@ def verify_email(request):
     else:
         return Response({"error": "Invalid token."}, status=400)
     
+@api_view(['POST'])
+def password_reset_request(request):
+    email = request.data.get('email')
 
+    if not email:
+        return JsonResponse({"detail": "Email is required."}, status=400)
+
+    try:
+        user = get_user_model().objects.get(email=email)
+    except get_user_model().DoesNotExist:
+        return JsonResponse({"detail": "Email not found."}, status=404)
+
+    # Generate password reset token
+    token = default_token_generator.make_token(user)
+    uid = urlsafe_base64_encode(str(user.pk).encode())
+
+    # Update reset link to point to frontend (replace with actual frontend URL)
+
+    reset_link = f"{FRONT_END_DOMAIN}/password-reset-confirm/{uid}/{token}/"
+
+    # Send the password reset email
+    subject = "Password Reset Request"
+    message = f"Click the link below to reset your password:\n\n{reset_link}\n\nIf you didn't request this, please ignore this email."
+
+    send_mail(subject, message, 'noreply@yourdomain.com', [email])
+
+    return JsonResponse({"detail": "Password reset email sent."}, status=200)
+
+
+
+@api_view(['POST'])
+def password_reset_confirm(request, uidb64, token):
+    try:
+        uid = urlsafe_base64_decode(uidb64).decode()
+        user = get_user_model().objects.get(pk=uid)
+    except (TypeError, ValueError, get_user_model().DoesNotExist):
+        return JsonResponse({"detail": "Invalid token or user."}, status=400)
+
+    if not default_token_generator.check_token(user, token):
+        return JsonResponse({"detail": "Invalid or expired token."}, status=400)
+
+    password = request.data.get('password')
+    if not password:
+        return JsonResponse({"detail": "Password is required."}, status=400)
+
+    user.set_password(password)
+    user.save()
+
+    return JsonResponse({"detail": "Password has been reset successfully."}, status=200)

@@ -296,3 +296,7 @@ div input[type="checkbox"]:checked + label {
 .Free-Trial-text {
   text-align: center;
 }
+
+.forgot-password-container {
+  margin-bottom: 10px;
+}
