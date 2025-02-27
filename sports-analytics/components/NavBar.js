@@ -25,6 +25,7 @@ const NavBar = () => {
   const handleLogout = () => {
     Cookies.remove("access_token");
     Cookies.remove("refresh_token");
+    localStorage.removeItem("subscription_status"); // Remove subscription status
     setIsLoggedIn(false);
     router.push("/login");
   };

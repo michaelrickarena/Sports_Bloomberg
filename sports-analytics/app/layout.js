@@ -12,21 +12,18 @@ export default function Layout({ children }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    // Log all available cookies
     console.log("All Cookies:", document.cookie);
 
-    // Check for both access_token and refresh_token in cookies
     const accessToken = Cookies.get("access_token");
     const refreshToken = Cookies.get("refresh_token");
-
     console.log("Access Token:", accessToken);
     console.log("Refresh Token:", refreshToken);
 
-    // Set login state based on presence of both tokens
     const isUserLoggedIn = !!accessToken && !!refreshToken;
     setIsLoggedIn(isUserLoggedIn);
 
-    console.log("User logged in:", isUserLoggedIn);
+    const subscriptionStatus = localStorage.getItem("subscription_status");
+    console.log("Subscription Status:", subscriptionStatus);
 
     const publicPaths = [
       "/login",
@@ -36,12 +33,15 @@ export default function Layout({ children }) {
       "/checkout",
     ];
 
-    // If no token and user is not on a public path, redirect to login
-    if (!isUserLoggedIn && !publicPaths.includes(pathname)) {
-      console.log("No valid token, redirecting to /login...");
+    // Restrict access if the user is inactive or not logged in
+    if (
+      (!isUserLoggedIn || subscriptionStatus === "inactive") &&
+      !publicPaths.includes(pathname)
+    ) {
+      console.log("Access restricted: Redirecting to /login...");
       router.replace("/login");
     } else {
-      console.log("User is logged in or on a public path.");
+      console.log("User is logged in and has access.");
     }
   }, [pathname, router]);
 

@@ -804,62 +804,50 @@ def login_and_get_jwt(request):
     username = request.data.get('username')
     password = request.data.get('password')
 
-    # Check if both fields are provided
     if not username or not password:
         return Response({"error": "Username and password are required."}, status=400)
 
-    # Authenticate the user
     user = authenticate(username=username, password=password)
     if user is None:
         return Response({"error": "Invalid username or password."}, status=401)
 
-    # Check if the user is active (email verification)
     if not user.is_active:
         return Response({"error": "Account is not active. Please verify your email."}, status=400)
 
-    # Log the user in (this triggers `user_logged_in` signal)
     login(request, user)
     
     # Check subscription status
+    subscription_status = "inactive"  # Default status if no subscription found
+
     subscription = UserSubscription.objects.filter(user=user).first()
     if subscription:
         logger.info(f"Subscription found for {user.username}, expiration date: {subscription.expiration_date}")
-        
-        # If subscription expired, mark as inactive
-        if subscription.expiration_date and subscription.expiration_date < timezone.now():
+
+        if subscription.expiration_date and subscription.expiration_date >= timezone.now():
+            subscription_status = subscription.status
+        else:
             subscription.status = 'inactive'
             subscription.save()
             logger.info(f"Subscription expired for {user.username}. Status set to inactive.")
+            subscription_status = 'inactive'
     else:
         logger.info(f"No subscription found for {user.username}")
-    
-    # Generate JWT tokens
+
     refresh = RefreshToken.for_user(user)
 
-    # Set JWT tokens as cookies with expiration time (1 day)
     response = JsonResponse({
         'message': 'Login successful',
         'access': str(refresh.access_token),
         'refresh': str(refresh),
+        'subscription_active': subscription_status,  # Pass the exact subscription status
     })
-    response.set_cookie(
-        'refresh_token', 
-        str(refresh), 
-        httponly=True, 
-        secure=False,  # For production, make sure to use secure=True (HTTPS)
-        samesite='None', 
-        max_age=86400,
-    )
-    response.set_cookie(
-        'access_token', 
-        str(refresh.access_token), 
-        httponly=True, 
-        secure=False,  # For production, make sure to use secure=True (HTTPS)
-        samesite='None', 
-        max_age=86400,
-    )
+
+    response.set_cookie("refresh_token", str(refresh), httponly=True, secure=False, samesite="None", max_age=86400)
+    response.set_cookie("access_token", str(refresh.access_token), httponly=True, secure=False, samesite="None", max_age=86400)
 
     return response
+
+
 
 
 @api_view(['GET'])
@@ -981,3 +969,5 @@ def verify_email(request):
         return Response({"message": "Email verified successfully."})
     else:
         return Response({"error": "Invalid token."}, status=400)
+    
+
