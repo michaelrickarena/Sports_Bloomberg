@@ -68,6 +68,9 @@ def lambda_handler(event=None, context=None):
         #update unique players in distinct props
         db.update_distinct_props()
 
+        # delete old games
+        db.delete_old_games()
+
         # this triggers delete on cascade to only have most recent events
         try:
             db.delete_games_with_false_status()  # Delete any game_IDs with False status as the game is completed

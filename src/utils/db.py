@@ -934,6 +934,20 @@ class DB:
         except Exception as e:
             logger.error(f"Error occurred deleting scores where game_status is true. Error: {e}", exc_info=True)
 
+    def delete_old_games(self):
+        """Deletes rows in the 'scores' table where the game_time is older than 2 days."""
+        try:
+            with self.conn.cursor() as cursor:
+                # Get the current time minus 2 days
+                cursor.execute("""
+                    DELETE FROM scores
+                    WHERE game_time < CURRENT_TIMESTAMP - INTERVAL '2 days';
+                """)
+                self.conn.commit()
+                logger.info("Successfully deleted rows with game_time older than 2 days.")
+        except Exception as e:
+            logger.error(f"Error occurred deleting old game data from scores table. Error: {e}", exc_info=True)
+
 
 # ### End NFL Props Create, insert, Get, Clear
 
