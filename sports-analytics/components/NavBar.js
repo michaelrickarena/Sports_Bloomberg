@@ -153,9 +153,7 @@ const NavBar = () => {
           {showDropdownAnalytics && (
             <ul className={styles.dropdown}>
               <li>
-                <Link href="/biggest-line-movements">
-                  Biggest Line Movements
-                </Link>
+                <Link href="/expected-value">Expected Value</Link>
               </li>
               <li>
                 <Link href="/arbitrage-opportunities">

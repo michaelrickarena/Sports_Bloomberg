@@ -300,3 +300,7 @@ div input[type="checkbox"]:checked + label {
 .forgot-password-container {
   margin-bottom: 10px;
 }
+
+.payment-success {
+  margin-top: 10px;
+}

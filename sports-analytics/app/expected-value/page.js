@@ -1,6 +1,6 @@
 import "../../styles/globals.css"; // Global styles if needed
 
-export default function LineMovementsPage() {
+export default function ExpectedValuePage() {
   return (
     <main>
       <h1>Page Under Construction</h1>

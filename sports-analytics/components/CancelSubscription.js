@@ -44,7 +44,10 @@ const CancelSubscription = () => {
           setExpirationDate("No active subscription");
         }
       } catch (error) {
-        console.error("Failed to fetch subscription details", error);
+        console.error(
+          "Failed to fetch subscription details - logout and try again",
+          error
+        );
         setExpirationDate("Error fetching subscription details");
       }
     };
