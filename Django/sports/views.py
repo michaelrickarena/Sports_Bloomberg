@@ -49,6 +49,9 @@ from sports.users.utils import generate_email_verification_token
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
+from rest_framework import generics, permissions
+from .models import UserBet
+from .serializers import UserBetSerializer
 
 load_dotenv()
 
@@ -1043,3 +1046,13 @@ def password_reset_confirm(request, uidb64, token):
     user.save()
 
     return JsonResponse({"detail": "Password has been reset successfully."}, status=200)
+
+
+
+class UserBetCreateView(generics.CreateAPIView):
+    queryset = UserBet.objects.all()
+    serializer_class = UserBetSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)

@@ -18,6 +18,7 @@ from datetime import timedelta
 
 load_dotenv()
 
+actual_domain='thesmartlines.com'
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -35,7 +36,7 @@ SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['10.0.0.29', 'localhost', '127.0.0.1', "192.168.2.46"]
+ALLOWED_HOSTS = ['10.0.0.29', 'localhost', '127.0.0.1', "192.168.2.46", 'www.thesmartlines.com', 'thesmartlines.com']
 
 
 # Application definition
@@ -52,6 +53,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework_simplejwt',
     'django_extensions',
+    "django_celery_beat",
 ]
 
 REST_FRAMEWORK = {
@@ -238,3 +240,8 @@ SECURE_SSL_REDIRECT = True  # Redirect all HTTP requests to HTTPS
 SECURE_HSTS_SECONDS = 31536000  # Enforce HTTPS for a year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
+
+
+CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"

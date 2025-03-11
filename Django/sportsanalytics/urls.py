@@ -21,7 +21,7 @@ from sports.views import (
     SpreadsListView, UpcomingGamesListView, OverunderChartDataView, PropsChartDataView, SpreadsChartDataView, 
     latest_MoneylineListView, latest_OverunderListView, latest_PropsListView, latest_SpreadsListView, DistinctPropsListView, 
     create_checkout_session, cancel, success, stripe_webhook, login_and_get_jwt, cancel_subscription, verify_email, get_subscription_details,
-    password_reset_request, password_reset_confirm
+    password_reset_request, password_reset_confirm, UserBetCreateView
 
 )
 from django.http import HttpResponse
@@ -53,6 +53,9 @@ urlpatterns = [
     path('api/reset-password/', views.password_reset_request, name='password_reset_request'),
     path('api/reset-password/<uidb64>/<token>/', views.password_reset_confirm, name='password_reset_confirm'),
 
+    #admin page
+    path('pqowieurytlaksjdhfgmznxbcv0192746483-admin-url/', admin.site.urls),
+
     #jwt
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
@@ -61,6 +64,9 @@ urlpatterns = [
     path("api/cancel-subscription/", cancel_subscription, name="cancel-subscription"),
     path('api/verify-email/', verify_email),  # Add this line for email verification
     path('api/subscription-details/', get_subscription_details),  # Add this line for email verification
+
+    #Arb
+    path("api/user_bets/", UserBetCreateView.as_view(), name="user_bet_create"),
 
 
     # List Views

@@ -391,3 +391,22 @@ class UserSubscription(models.Model):
 
     class Meta:
         db_table = 'user_subscription'
+
+
+class UserBet(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)  # Link to user
+    game = models.ForeignKey('Scores', models.DO_NOTHING, to_field='game_id', blank=True, null=True, db_column='game_id')
+    bookie = models.CharField(max_length=50)  # Bookie user bet with
+    bet_type = models.CharField(max_length=20, choices=[("moneyline", "Moneyline")])  # Only moneyline for now
+    line = models.FloatField()  # Odds user bet at (-110, +120, etc.)
+    alert_threshold = models.FloatField()  # % return threshold for alert
+    is_active = models.BooleanField(default=True)  # Whether the bet is still being tracked
+    team_bet_on = models.CharField(max_length=100, blank=True, null=True)  # Team name user bet on (home or away team)
+    created_at = models.DateTimeField(auto_now_add=True)  # Timestamp when bet was recorded
+    bet_amount = models.DecimalField(max_digits=15, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.game_id} ({self.bookie})"
+
+    class Meta:
+        db_table = 'userbet'  # Specify the table name explicitly

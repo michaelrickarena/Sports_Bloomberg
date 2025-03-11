@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Moneyline, Overunder, Props, Scores, Spreads, UpcomingGames, latest_Moneyline, latest_Overunder, latest_Props, latest_Spreads, DistinctProps
+from .models import Moneyline, Overunder, Props, Scores, Spreads, UpcomingGames, latest_Moneyline, latest_Overunder, latest_Props, latest_Spreads, DistinctProps, UserBet
+
 
 class MoneylineSerializer(serializers.ModelSerializer):
     class Meta:
@@ -55,3 +56,17 @@ class DistinctPropsSerializer(serializers.ModelSerializer):
     class Meta:
         model = DistinctProps
         fields = '__all__'  
+
+class UserBetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserBet
+        fields = "__all__"
+        read_only_fields = ["user", "created_at"]
+
+    def validate_odds(self, value):
+        if value == 0:
+            raise serializers.ValidationError("Odds cannot be zero.")
+        # Ensure the odds are integers (no decimals or floats allowed)
+        if not isinstance(value, int):
+            raise serializers.ValidationError("Odds must be an integer (no decimal or float values allowed).")
+        return value
