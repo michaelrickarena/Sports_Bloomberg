@@ -74,7 +74,7 @@ const Login = () => {
         Logging in and having an active subscription is required to use this
         software.
       </h4>
-      <form onSubmit={handleLogin} className="form-container">
+      <form onSubmit={handleLogin} className="login-form-container">
         <input
           type="text"
           value={username}

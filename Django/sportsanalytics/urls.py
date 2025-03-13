@@ -21,7 +21,7 @@ from sports.views import (
     SpreadsListView, UpcomingGamesListView, OverunderChartDataView, PropsChartDataView, SpreadsChartDataView, 
     latest_MoneylineListView, latest_OverunderListView, latest_PropsListView, latest_SpreadsListView, DistinctPropsListView, 
     create_checkout_session, cancel, success, stripe_webhook, login_and_get_jwt, cancel_subscription, verify_email, get_subscription_details,
-    password_reset_request, password_reset_confirm, UserBetCreateView
+    password_reset_request, password_reset_confirm, UserBetCreateView, UserBetListView, UserBetDeleteView
 
 )
 from django.http import HttpResponse
@@ -67,6 +67,8 @@ urlpatterns = [
 
     #Arb
     path("api/user_bets/", UserBetCreateView.as_view(), name="user_bet_create"),
+    path('api/user_bets/list/', UserBetListView.as_view(), name='user_bet_list'),
+    path('api/user_bets/delete/<int:pk>/', UserBetDeleteView.as_view(), name='user_bet_delete'),
 
 
     # List Views

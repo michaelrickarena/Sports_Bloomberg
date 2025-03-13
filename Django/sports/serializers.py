@@ -57,16 +57,35 @@ class DistinctPropsSerializer(serializers.ModelSerializer):
         model = DistinctProps
         fields = '__all__'  
 
+
+
 class UserBetSerializer(serializers.ModelSerializer):
+    game_id = serializers.SlugRelatedField(
+        slug_field='game_id',
+        queryset=Scores.objects.all(),
+        source='game'
+    )
+
     class Meta:
         model = UserBet
-        fields = "__all__"
-        read_only_fields = ["user", "created_at"]
+        fields = [
+            'id', 'user', 'game_id', 'bookie', 'bet_type', 'line',
+            'alert_threshold', 'is_active', 'team_bet_on', 'created_at',
+            'bet_amount'
+        ]
+        read_only_fields = ['user', 'created_at']
+
+    def to_representation(self, instance):
+        # Get the default serialized data
+        data = super().to_representation(instance)
+        # Convert id and user to strings
+        data['id'] = str(data['id'])
+        data['user'] = str(data['user'])
+        return data
 
     def validate_odds(self, value):
         if value == 0:
             raise serializers.ValidationError("Odds cannot be zero.")
-        # Ensure the odds are integers (no decimals or floats allowed)
         if not isinstance(value, int):
             raise serializers.ValidationError("Odds must be an integer (no decimal or float values allowed).")
         return value

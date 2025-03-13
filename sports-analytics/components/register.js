@@ -46,7 +46,7 @@ const Register = () => {
         {" "}
         For a short period of time, all new accounts will be given a free trial.
       </p>
-      <form onSubmit={handleRegister}>
+      <form className="login-form-container" onSubmit={handleRegister}>
         <input
           type="text"
           value={username}

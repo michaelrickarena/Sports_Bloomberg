@@ -62,6 +62,22 @@ REST_FRAMEWORK = {
     ),
 }
 
+# Allow your Next.js origin
+CORS_ALLOWED_ORIGINS = [
+    "https://localhost:3000",  # Your Next.js frontend
+    "http://localhost:3000",   # If you switch to HTTP
+]
+
+# Allow specific methods and headers
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',

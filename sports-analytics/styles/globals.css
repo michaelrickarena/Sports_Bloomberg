@@ -74,6 +74,7 @@ button {
   cursor: pointer; /* Pointer cursor */
   transition: background-color 0.3s ease, box-shadow 0.3s ease; /* Smooth hover effects */
   margin-bottom: 5px;
+  max-width: 300px;
 }
 
 button:hover {

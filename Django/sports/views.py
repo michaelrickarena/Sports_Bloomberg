@@ -1049,10 +1049,57 @@ def password_reset_confirm(request, uidb64, token):
 
 
 
-class UserBetCreateView(generics.CreateAPIView):
+class UserBetCreateView(APIView):
     queryset = UserBet.objects.all()
     serializer_class = UserBetSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]  # Ensures the user is authenticated
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+    def post(self, request, *args, **kwargs):
+        # Check the Authorization header
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            logger.error("Authorization header missing")
+            return Response({"detail": "Authorization header missing"}, status=status.HTTP_401_UNAUTHORIZED)
+        try:
+            # Extract token from Authorization header
+            token = auth_header.split(' ')[1]
+            # This will trigger the validation of the token and associate the user with the request
+            user, _ = JWTAuthentication().authenticate(request)
+        except Exception as e:
+            return Response({"detail": "Invalid or expired token"}, status=status.HTTP_401_UNAUTHORIZED)
+        serializer = UserBetSerializer(data=request.data)
+
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            serializer.save()
+            logger.debug("Bet successfully created.")
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            logger.error(f"Validation failed: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class UserBetListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        # Get all bets for the authenticated user
+        user_bets = UserBet.objects.filter(user=request.user)
+        serializer = UserBetSerializer(user_bets, many=True)
+        
+        # Debugging: Print retrieved data in the console
+        print("User Bets Data:", serializer.data)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+class UserBetDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk, *args, **kwargs):
+        try:
+            bet = UserBet.objects.get(pk=pk, user=request.user)
+            bet.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except UserBet.DoesNotExist:
+            return Response({"detail": "Bet not found"}, status=status.HTTP_404_NOT_FOUND)

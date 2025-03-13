@@ -29,16 +29,14 @@ export default function Layout({ children }) {
       "/login",
       "/verify-email",
       "/register",
-      "/",
       "/checkout",
       "/password-reset",
-      "/password-reset-confirm", // Base path for dynamic route
+      "/password-reset-confirm",
     ];
 
-    // Check if the current pathname starts with any public path
-    const isPublicPath = publicPaths.some((path) => pathname.startsWith(path));
+    const isPublicPath =
+      pathname === "/" || publicPaths.some((path) => pathname.startsWith(path));
 
-    // Restrict access if the user is inactive or not logged in
     if (
       (!isUserLoggedIn || subscriptionStatus === "inactive") &&
       !isPublicPath
