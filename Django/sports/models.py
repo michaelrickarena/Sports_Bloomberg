@@ -395,7 +395,7 @@ class UserSubscription(models.Model):
 
 class UserBet(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)  # Link to user
-    game = models.ForeignKey('Scores', models.DO_NOTHING, to_field='game_id', blank=True, null=True, db_column='game_id')
+    game = models.ForeignKey('Scores', on_delete=models.CASCADE, to_field='game_id', blank=True, null=True, db_column='game_id')
     bookie = models.CharField(max_length=50)  # Bookie user bet with
     bet_type = models.CharField(max_length=20, choices=[("moneyline", "Moneyline")])  # Only moneyline for now
     line = models.FloatField()  # Odds user bet at (-110, +120, etc.)

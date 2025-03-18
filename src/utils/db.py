@@ -909,7 +909,7 @@ class DB:
             logger.error(f"Failed to insert NFL scores data into scores table. Error: {e}, data: {scores}", exc_info=True)
 
 
-    def delete_games_with_false_status(self):
+    def delete_games_with_true_status(self):
         """Deletes all rows for game_IDs where any row has game_status = 'False'."""
         try:
             with self.conn.cursor() as cursor:
@@ -951,57 +951,212 @@ class DB:
 
 # ### End NFL Props Create, insert, Get, Clear
 
+    #    "84d20dc0dc4467c9fbc67824a1ffa2e3",
+    #     "BetMGM",
+    #     "h2h",
+    #     "Chicago Blackhawks",
+    #     105,
+    #     "San Jose Sharks",
+    #     -125,
+    #     "2025-03-14T02:30:00Z",
+    #     "2025-03-14T00:06:03Z",
+    #     "icehockey_nhl"
 
-    def get_arb_data(self):
-        """Fetch arb from db"""
-        query = """
-            WITH latest AS (
-                SELECT game_id, bookie, MAX(last_updated_timestamp) AS latest_dt
-                FROM moneyline
-                GROUP BY game_id, bookie
-            ),
-            latest_detailed AS (
-                SELECT l.game_id, l.bookie, l.latest_dt, m.line_1, m.line_2
-                FROM latest AS l
-                LEFT JOIN moneyline AS m
-                ON l.game_id = m.game_id AND l.bookie = m.bookie AND l.latest_dt = m.last_updated_timestamp 
-            ),
-            line1_max AS (
-                SELECT l.game_id, l.line_1, ld.bookie
-                FROM (
-                    SELECT game_id, MAX(line_1) AS line_1
-                    FROM latest_detailed
-                    GROUP BY game_id
-                ) AS l
-                LEFT JOIN latest_detailed AS ld
-                ON l.game_id = ld.game_id AND l.line_1 = ld.line_1 
-            ),
-            line2_max AS (
-                SELECT l.game_id, l.line_2, ld.bookie
-                FROM (
-                    SELECT game_id, MAX(line_2) AS line_2
-                    FROM latest_detailed
-                    GROUP BY game_id
-                ) AS l
-                LEFT JOIN latest_detailed AS ld
-                ON l.game_id = ld.game_id AND l.line_2 = ld.line_2
-            ),
-            arb1 AS (
-                SELECT * FROM line1_max
-            ),
-            arb2 AS (
-                SELECT * FROM line2_max
-            )
-            SELECT * FROM arb1
-            UNION ALL
-            SELECT * FROM arb2;
+### START +EV table
 
+
+    def create_latest_EV_moneyline(self):
+        """Creates the expected_value_moneyline table in the database with a unique constraint."""
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS expected_value_moneyline (
+                        id SERIAL PRIMARY KEY,
+                        game_ID VARCHAR(255) NOT NULL,
+                        Bookie TEXT NOT NULL,
+                        Matchup_Type TEXT NOT NULL,
+                        Team TEXT NOT NULL,
+                        Line INT NOT NULL,
+                        Expected_Value FLOAT NOT NULL CHECK (Expected_Value > 0),
+                        Fair_Probability FLOAT NOT NULL,
+                        Implied_Probability FLOAT NOT NULL,
+                        Market_Overround FLOAT NOT NULL,
+                        sport_type TEXT NOT NULL,
+                        event_timestamp TIMESTAMPTZ NOT NULL,  -- Timestamp for the event
+                        last_updated_timestamp TIMESTAMPTZ NOT NULL,  -- Timestamp of last update
+                        CONSTRAINT expected_value_moneyline_game_id_bookie_team_line_key
+                        UNIQUE (game_ID, Bookie, Team, Line)
+                    );
+                    """
+                )
+            self.conn.commit()
+            logger.info("Successfully created expected_value_moneyline table or table already exists")
+        except Exception as e:
+            logger.error(f"Failed to create expected_value_moneyline table. Error: {e}", exc_info=True)
+            self.conn.rollback()  # Roll back on failure
+
+    def insert_expected_value_moneyline(self, expected_value_moneyline):
+        """Inserts provided list of tuples of +EV into DB after verifying the game_ID exists in scores.
+
+        Args:
+            expected_value_moneyline (list of tuples): The list of tuples will have the following columns:
+                - 'game_ID': Unique ID from OddsAPI for a game/event (str).
+                - 'Bookie': Name of one of 10 bookies included in OddsAPI (str).
+                - 'Matchup_Type': Type of matchup needed for the bet (str).
+                - 'Team': Team with the positive expected value to be bet on (str).
+                - 'Line': Betting line for the team Moneyline (int).
+                - 'Expected_Value': The expected profit per $100 bet, calculated as 
+                                   (fair probability * payout) - (1 - fair probability) * bet amount, 
+                                   rounded to 2 decimal places (float).
+                - 'Fair_Probability': The adjusted probability of the team winning, derived by normalizing 
+                                     the implied probability against the market overround, rounded to 4 decimal places (float).
+                - 'Implied_Probability': The probability implied by the betting line for the specific bookie, 
+                                        calculated from American odds as 100 / (odds + 100) for positive odds 
+                                        or -odds / (-odds + 100) for negative odds, rounded to 4 decimal places (float).
+                - 'Market_Overround': The sum of implied probabilities across all outcomes, representing the 
+                                     bookmaker's margin or the market's total probability (e.g., 1.0456 for 104.56%), 
+                                     rounded to 4 decimal places (float).
+                - 'sport_type': The type of sport for this bet (str).
+                - 'event_timestamp': Time of the game in ISO 8601 format (str).
+                - 'last_updated_timestamp': Last time the odds were updated in ISO 8601 format (str).
         """
-        with self.conn.cursor() as cursor:
-            cursor.execute(query)
-            data = cursor.fetchall()
-            print(data)
-        return data
+        if not isinstance(expected_value_moneyline, list):
+            raise TypeError(f"expected_value_moneyline must be a list of tuples, got {type(expected_value_moneyline)}")
+
+        inserted_count = 0
+        line = None
+        try:
+            with self.conn.cursor() as cursor:
+                for line in expected_value_moneyline:
+                    game_id = line[0]  # game_ID is the first element in each tuple
+
+                    # Check if game_ID exists in the 'scores' table
+                    cursor.execute("SELECT 1 FROM scores WHERE game_id = %s", (game_id,))
+                    if not cursor.fetchone():
+                        logger.warning(f"Game ID {game_id} does not exist in scores. Skipping insertion for this game.")
+                        continue
+
+                    # Insert the row, using the unique constraint to handle duplicates
+                    cursor.execute("""
+                        INSERT INTO expected_value_moneyline (
+                            game_ID, Bookie, Matchup_Type, Team, Line, Expected_Value, 
+                            Fair_Probability, Implied_Probability, Market_Overround, sport_type, 
+                            event_timestamp, last_updated_timestamp
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT ON CONSTRAINT expected_value_moneyline_game_id_bookie_team_line_key 
+                        DO NOTHING
+                    """, line)
+                    inserted_count += 1
+
+            self.conn.commit()
+            logger.info(f"Successfully inserted {inserted_count} rows into 'expected_value_moneyline' table")
+        except Exception as e:
+            if line is not None:
+                logger.error(f"Failed to insert into 'expected_value_moneyline' table. Error: {e}, problematic line: {line}", exc_info=True)
+            else:
+                logger.error(f"Failed to insert into 'expected_value_moneyline' table. Error: {e}", exc_info=True)
+            self.conn.rollback()  # Roll back on error
+
+
+                        # id SERIAL PRIMARY KEY,
+                        # game_ID VARCHAR(255),
+                        # last_updated_timestamp TIMESTAMPTZ NOT NULL, -- Timestamp of last update              
+                        # Bookie TEXT NOT NULL,
+                        # 
+                        # 
+                        # 
+                        # 
+                        # 
+                        # sport_type TEXT NOT NULL,
+                        # FOREIGN KEY (game_ID) REFERENCES scores(game_ID) ON DELETE CASCADE
+
+    def create_latest_EV_props(self):
+        """Creates the expected_value_props table in the database with a unique constraint."""
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS expected_value_props (
+                        id SERIAL PRIMARY KEY,
+                        game_ID VARCHAR(255) NOT NULL,
+                        Bookie TEXT NOT NULL,
+                        Prop_Type TEXT NOT NULL,
+                        Bet_Type TEXT NOT NULL,
+                        Player_Name TEXT NOT NULL,
+                        Betting_Line INT NOT NULL,
+                        Betting_Point TEXT NOT NULL,
+                        Expected_Value FLOAT NOT NULL CHECK (Expected_Value > 0),
+                        Fair_Probability FLOAT NOT NULL,
+                        Implied_Probability FLOAT NOT NULL,
+                        Market_Overround FLOAT NOT NULL,
+                        sport_type TEXT NOT NULL,
+                        last_updated_timestamp TIMESTAMPTZ NOT NULL,
+                        CONSTRAINT expected_value_props_game_id_bookie_prop_bet_player_line_key
+                        UNIQUE (game_ID, Bookie, Prop_Type, Bet_Type, Player_Name, Betting_Line)
+                    );
+                    """
+                )
+            self.conn.commit()
+            logger.info("Successfully created expected_value_props table or table already exists")
+        except Exception as e:
+            logger.error(f"Failed to create expected_value_props table. Error: {e}", exc_info=True)
+            self.conn.rollback()
+
+    def insert_expected_value_props(self, expected_value_props):
+        """Inserts provided list of +EV props into DB after verifying the game_ID exists in scores.
+
+        Args:
+            expected_value_props (list of tuples): List of tuples with the following columns:
+                - game_ID (str): Unique ID from OddsAPI for a game/event.
+                - Bookie (str): Name of one of 10 bookies included in OddsAPI.
+                - Prop_Type (str): Type of prop bet (e.g., 'player_points').
+                - Bet_Type (str): Type of bet ('yes', 'over', 'under').
+                - Player_Name (str): Player with the positive expected value.
+                - Betting_Point (str): Line for the prop bet, or 'N/A' for 'yes' bets.
+                - Betting_Line (int): Betting odds in American format.
+                - Expected_Value (float): Expected profit per $100 bet, rounded to 2 decimal places.
+                - Fair_Probability (float): Adjusted probability, rounded to 4 decimal places.
+                - Implied_Probability (float): Probability from odds, rounded to 4 decimal places.
+                - Market_Overround (float): Bookmaker's margin, rounded to 4 decimal places.
+                - sport_type (str): Type of sport (e.g., 'basketball_nba').
+                - last_updated_timestamp (str): Last update time in ISO 8601 format.
+        """
+        if not isinstance(expected_value_props, list):
+            raise TypeError(f"expected_value_props must be a list of tuples, got {type(expected_value_props)}")
+
+        inserted_count = 0
+        line = None
+        try:
+            with self.conn.cursor() as cursor:
+                for line in expected_value_props:
+                    game_id = line[0]
+                    cursor.execute("SELECT 1 FROM scores WHERE game_id = %s", (game_id,))
+                    if not cursor.fetchone():
+                        logger.warning(f"Game ID {game_id} does not exist in scores. Skipping insertion.")
+                        continue
+
+                    cursor.execute("""
+                        INSERT INTO expected_value_props (
+                            game_ID, Bookie, Prop_Type, Bet_Type, Player_Name, Betting_Point, Betting_Line,
+                            Expected_Value, Fair_Probability, Implied_Probability, Market_Overround,
+                            sport_type, last_updated_timestamp
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT ON CONSTRAINT expected_value_props_game_id_bookie_prop_bet_player_line_key 
+                        DO NOTHING
+                    """, line)
+                    inserted_count += 1
+
+            self.conn.commit()
+            logger.info(f"Successfully inserted {inserted_count} rows into 'expected_value_props' table")
+        except Exception as e:
+            if line is not None:
+                logger.error(f"Failed to insert into 'expected_value_props' table. Error: {e}, problematic line: {line}", exc_info=True)
+            else:
+                logger.error(f"Failed to insert into 'expected_value_props' table. Error: {e}", exc_info=True)
+            self.conn.rollback()
+
+### START +EV table
 
 
 
@@ -1012,7 +1167,7 @@ class DB:
         Args:
             table (str): The name of the table to truncate.
         """
-        VALID_TABLES = ['upcoming_games', 'latest_spreads', 'latest_moneyline', 'latest_overunder', 'latest_props']
+        VALID_TABLES = ['upcoming_games', 'latest_spreads', 'latest_moneyline', 'latest_overunder', 'latest_props', 'expected_value_moneyline', 'expected_value_props']
 
         if table not in VALID_TABLES:
             logger.error(f"Invalid table name: {table}. Truncate operation aborted.")

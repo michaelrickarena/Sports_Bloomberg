@@ -12,24 +12,17 @@ export default function Layout({ children }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    console.log("All Cookies:", document.cookie);
-
     const accessToken = Cookies.get("access_token");
     const refreshToken = Cookies.get("refresh_token");
-    console.log("Access Token:", accessToken);
-    console.log("Refresh Token:", refreshToken);
-
     const isUserLoggedIn = !!accessToken && !!refreshToken;
     setIsLoggedIn(isUserLoggedIn);
 
     const subscriptionStatus = localStorage.getItem("subscription_status");
-    console.log("Subscription Status:", subscriptionStatus);
 
     const publicPaths = [
       "/login",
       "/verify-email",
       "/register",
-      "/checkout",
       "/password-reset",
       "/password-reset-confirm",
     ];
@@ -37,14 +30,16 @@ export default function Layout({ children }) {
     const isPublicPath =
       pathname === "/" || publicPaths.some((path) => pathname.startsWith(path));
 
-    if (
-      (!isUserLoggedIn || subscriptionStatus === "inactive") &&
-      !isPublicPath
-    ) {
-      console.log("Access restricted: Redirecting to /login...");
+    if (isPublicPath) {
+      // Allow access to public paths
+    } else if (!isUserLoggedIn) {
+      // Redirect to /login if not logged in
       router.replace("/login");
+    } else if (subscriptionStatus === "inactive" && pathname !== "/checkout") {
+      // Redirect to /checkout if logged in but subscription is inactive
+      router.replace("/checkout");
     } else {
-      console.log("User is logged in or on a public path. Access granted.");
+      // Allow access to protected paths or /checkout if logged in
     }
   }, [pathname, router]);
 
