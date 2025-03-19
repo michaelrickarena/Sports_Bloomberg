@@ -410,3 +410,42 @@ class UserBet(models.Model):
 
     class Meta:
         db_table = 'userbet'  # Specify the table name explicitly
+
+class ExpectedValueMoneyline(models.Model):
+    game_id = models.CharField(max_length=255, db_column='game_id')
+    bookie = models.TextField(db_column='bookie')
+    matchup_type = models.TextField(db_column='matchup_type')
+    team = models.TextField(db_column='team')
+    line = models.IntegerField(db_column='line')
+    expected_value = models.FloatField(db_column='expected_value')
+    fair_probability = models.FloatField(db_column='fair_probability')
+    implied_probability = models.FloatField(db_column='implied_probability')
+    market_overround = models.FloatField(db_column='market_overround')
+    sport_type = models.TextField(db_column='sport_type')
+    event_timestamp = models.DateTimeField(db_column='event_timestamp')
+    last_updated_timestamp = models.DateTimeField(db_column='last_updated_timestamp')
+
+    class Meta:
+        db_table = 'expected_value_moneyline'
+        unique_together = ('game_id', 'bookie', 'team', 'line')
+        managed = False  # Django won't manage or try to migrate this table
+
+class ExpectedValueProps(models.Model):
+    game_ID = models.CharField(max_length=255, db_column='game_id')
+    Bookie = models.TextField(db_column='bookie')
+    Prop_Type = models.TextField(db_column='prop_type')
+    Bet_Type = models.TextField(db_column='bet_type')
+    Player_Name = models.TextField(db_column='player_name')
+    Betting_Line = models.IntegerField(db_column='betting_line')
+    Betting_Point = models.TextField(db_column='betting_point')
+    Expected_Value = models.FloatField(db_column='expected_value')
+    Fair_Probability = models.FloatField(db_column='fair_probability')
+    Implied_Probability = models.FloatField(db_column='implied_probability')
+    Market_Overround = models.FloatField(db_column='market_overround')
+    sport_type = models.TextField(db_column='sport_type')
+    last_updated_timestamp = models.DateTimeField(db_column='last_updated_timestamp')
+
+    class Meta:
+        db_table = 'expected_value_props'
+        unique_together = (('game_ID', 'Bookie', 'Prop_Type', 'Bet_Type', 'Player_Name', 'Betting_Line'),)
+        managed = False

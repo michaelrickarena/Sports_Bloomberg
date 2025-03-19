@@ -3,11 +3,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ExpectedValueAnalyzer:
-    def __init__(self, bet_lines, min_bookies=3):
+    def __init__(self, bet_lines, min_bookies=4, ev_target=1.5):
         """Initialize the analyzer with bet lines (moneylines or props) and a minimum bookie threshold."""
         self.bet_lines = bet_lines  # Generic name for moneylines or prop bets
         self.min_bookies = min_bookies
         self.results = []  # Store results here
+        self.ev_target = ev_target
 
     def calculate_implied_probability(self, odds):
         """Calculate the implied probability based on American odds."""
@@ -177,9 +178,43 @@ class ExpectedValueAnalyzer:
             outcomes = data['outcomes']
             
             if "yes" in outcomes:
-                # Assuming similar logic as over/under, omitted for brevity
-                continue
-            
+                bookies_yes = set(bookie for bookie, _ in outcomes["yes"])
+                if len(bookies_yes) < self.min_bookies:
+                    logger.debug(f"Skipping prop {key}: Insufficient bookies for 'yes' ({len(bookies_yes)} < {self.min_bookies})")
+                    continue
+
+                odds_yes = [odds for _, odds in outcomes["yes"]]
+                if any(odds > 1100 for odds in odds_yes):
+                    logger.debug(f"Skipping prop {key}: Contains longshot odds > +1000")
+                    continue
+                    
+                imp_probs_yes = [self.calculate_implied_probability(o) for o in odds_yes]
+                avg_imp_prob_yes = sorted(imp_probs_yes)[len(imp_probs_yes) // 2]  # Median
+                
+                assumed_overround = 1.225
+                fair_prob_yes = avg_imp_prob_yes / assumed_overround
+
+                for bookie, odds in outcomes["yes"]:
+                    ev = self.calculate_expected_value(odds, fair_prob_yes)
+                    if ev > self.ev_target:
+                        bookie_imp_prob = self.calculate_implied_probability(odds)
+                        logger.debug(f"Found +EV for 'yes' prop {key} at {bookie}: EV = {ev:.2f}, fair_prob = {fair_prob_yes:.4f}, implied_prob = {bookie_imp_prob:.4f}")
+                        self.results.append((
+                            data['game_ID'],
+                            bookie,
+                            data['Prop_Type'],
+                            "yes",
+                            data['Player_Name'],
+                            "N/A",
+                            odds,
+                            round(ev, 2),
+                            round(fair_prob_yes, 4),
+                            round(bookie_imp_prob, 4),
+                            round(assumed_overround, 4),
+                            data['sport_type'],
+                            data['last_updated_timestamp']
+                        ))
+                
             elif "over" in outcomes and "under" in outcomes:
                 bookies_over = set(bookie for bookie, _ in outcomes["over"])
                 bookies_under = set(bookie for bookie, _ in outcomes["under"])
@@ -205,7 +240,7 @@ class ExpectedValueAnalyzer:
                     fair_prob = fair_prob_over if bet_type == "over" else fair_prob_under
                     for bookie, odds in outcome_odds:
                         ev = self.calculate_expected_value(odds, fair_prob)
-                        if ev > 0:
+                        if ev > self.ev_target:
                             bookie_imp_prob = self.calculate_implied_probability(odds)
                             logger.debug(f"Found +EV for '{bet_type}' prop {key} at {bookie}: EV = {ev:.2f}, fair_prob = {fair_prob:.4f}, implied_prob = {bookie_imp_prob:.4f}")
                             self.results.append((

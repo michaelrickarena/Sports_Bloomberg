@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Moneyline, Overunder, Props, Scores, Spreads, UpcomingGames, latest_Moneyline, latest_Overunder, latest_Props, latest_Spreads, DistinctProps, UserBet
+from .models import Moneyline, Overunder, Props, Scores, Spreads, UpcomingGames, latest_Moneyline, latest_Overunder, latest_Props, latest_Spreads, DistinctProps, UserBet, ExpectedValueMoneyline, ExpectedValueProps
 
 
 class MoneylineSerializer(serializers.ModelSerializer):
@@ -89,3 +89,14 @@ class UserBetSerializer(serializers.ModelSerializer):
         if not isinstance(value, int):
             raise serializers.ValidationError("Odds must be an integer (no decimal or float values allowed).")
         return value
+
+class ExpectedValueMoneylineSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExpectedValueMoneyline
+        fields = '__all__'
+
+
+class ExpectedValuePropsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExpectedValueProps
+        fields = '__all__'

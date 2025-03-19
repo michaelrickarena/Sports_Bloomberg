@@ -69,11 +69,11 @@ const Login = () => {
 
   return (
     <>
-      <h3>Welcome to the Login Page</h3>
-      <h4>
+      <h3 className="welcome">Welcome to the Login Page</h3>
+      <p className="welcome-text">
         Logging in and having an active subscription is required to use this
         software.
-      </h4>
+      </p>
       <form onSubmit={handleLogin} className="login-form-container">
         <input
           type="text"

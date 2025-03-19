@@ -19,6 +19,16 @@ body {
   padding: 20px;
 }
 
+.expectedvalue-sports {
+  margin-left: 2.5%;
+  margin-right: 2.5%;
+}
+
+.arbitrage-tracking-sports-bets {
+  margin-left: 2.5%;
+  margin-right: 2.5%;
+}
+
 /* Container for the dropdown */
 select {
   padding: 8px;
@@ -74,7 +84,7 @@ button {
   cursor: pointer; /* Pointer cursor */
   transition: background-color 0.3s ease, box-shadow 0.3s ease; /* Smooth hover effects */
   margin-bottom: 5px;
-  max-width: 300px;
+  max-width: 400px;
 }
 
 button:hover {
@@ -293,6 +303,7 @@ div input[type="checkbox"]:checked + label {
 
 .Free-Trial-Title {
   text-align: center;
+  margin-top: 15px;
 }
 .Free-Trial-text {
   text-align: center;
@@ -304,4 +315,21 @@ div input[type="checkbox"]:checked + label {
 
 .payment-success {
   margin-top: 10px;
+}
+
+.submit-button {
+  width: 100%;
+}
+
+.welcome {
+  margin-top: 15px;
+}
+
+.welcome-text {
+  text-align: center;
+}
+
+.expectedvalue-sports-title {
+  margin-top: 15px;
+  margin-bottom: 10px;
 }

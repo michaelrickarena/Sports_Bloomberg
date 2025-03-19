@@ -14,7 +14,6 @@ const NavBar = () => {
   const [showDropdownNHL, setShowDropdownNHL] = useState(false);
   const [showDropdownMLB, setShowDropdownMLB] = useState(false);
   const [showDropdownNBA, setShowDropdownNBA] = useState(false);
-  const [showDropdownAnalytics, setShowDropdownAnalytics] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
@@ -25,7 +24,7 @@ const NavBar = () => {
   const handleLogout = () => {
     Cookies.remove("access_token");
     Cookies.remove("refresh_token");
-    localStorage.removeItem("subscription_status"); // Remove subscription status
+    localStorage.removeItem("subscription_status");
     setIsLoggedIn(false);
     router.push("/login");
   };
@@ -39,8 +38,14 @@ const NavBar = () => {
   return (
     <nav className={styles.nav}>
       <ul className={styles.navList}>
+        {/* Home as the first item */}
         <li className={styles.navItem}>
           <Link href="/">Home</Link>
+        </li>
+
+        {/* Expected Value as the second item */}
+        <li className={styles.navItem}>
+          <Link href="/expected-value">Expected Value</Link>
         </li>
 
         {/* NFL Dropdown */}
@@ -143,25 +148,9 @@ const NavBar = () => {
           )}
         </li>
 
-        {/* Analytics Dropdown */}
-        <li
-          className={styles.navItem}
-          onMouseEnter={() => setShowDropdownAnalytics(true)}
-          onMouseLeave={() => setShowDropdownAnalytics(false)}
-        >
-          Analytics
-          {showDropdownAnalytics && (
-            <ul className={styles.dropdown}>
-              <li>
-                <Link href="/expected-value">Expected Value</Link>
-              </li>
-              <li>
-                <Link href="/arbitrage-opportunities">
-                  Arbitrage Opportunities
-                </Link>
-              </li>
-            </ul>
-          )}
+        {/* Arbitrage Opportunities as the last item before auth links */}
+        <li className={styles.navItem}>
+          <Link href="/arbitrage-opportunities">Arbitrage</Link>
         </li>
 
         {/* User Authentication Links */}
@@ -171,16 +160,15 @@ const NavBar = () => {
               <Link href="/checkout">Subscribe</Link>
             </li>
             <li className={styles.navItem}>
-              <Link href="/account">Account</Link> {/* New Item */}
+              <Link href="/account">Account</Link>
             </li>
-            <li className={`${styles.navItem}`}>
+            <li className={styles.navItem}>
               <Link href="/" onClick={handleLogout}>
                 Logout
               </Link>
             </li>
           </>
         ) : (
-          // Not Logged In - Show Sign In and Sign Up
           <>
             <li className={`${styles.navItem} ${styles.rightAlign}`}>
               <Link href="/login">Sign In</Link>

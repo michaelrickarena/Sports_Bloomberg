@@ -1,15 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import "../styles/login.css";
 
 const Register = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleRegister = async (event) => {
     event.preventDefault();
+
+    if (!termsAccepted) {
+      alert("You must agree to the terms and conditions.");
+      return;
+    }
 
     const response = await fetch(
       `${process.env.NEXT_PUBLIC_API_BASE_URL}/register_and_get_jwt/`,
@@ -41,9 +48,8 @@ const Register = () => {
 
   return (
     <div>
-      <h2 className="Free-Trial-Title">7 Day Free Trial</h2>
+      <h3 className="Free-Trial-Title">7 Day Free Trial</h3>
       <p className="Free-Trial-text">
-        {" "}
         For a short period of time, all new accounts will be given a free trial.
       </p>
       <form className="login-form-container" onSubmit={handleRegister}>
@@ -71,6 +77,19 @@ const Register = () => {
           required
           className="input-field"
         />
+        <div className="terms-container" style={{ margin: "1rem 0" }}>
+          <input
+            type="checkbox"
+            id="terms"
+            required
+            checked={termsAccepted}
+            onChange={(e) => setTermsAccepted(e.target.checked)}
+          />
+          <label htmlFor="terms" style={{ marginLeft: "0.5rem" }}>
+            I agree to the{" "}
+            <Link href="/termsandconditions">Terms and Conditions</Link>
+          </label>
+        </div>
         <button type="submit">Register</button>
       </form>
     </div>

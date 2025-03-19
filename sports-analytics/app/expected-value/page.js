@@ -1,10 +1,13 @@
+import ExpectedValue from "../../components/ExpectedValue"; // Correct path to MoneyLine
 import "../../styles/globals.css"; // Global styles if needed
+import "../../styles/LatestMoneylineTable.css"; // Import the CSS file
 
 export default function ExpectedValuePage() {
   return (
-    <main>
-      <h1>Page Under Construction</h1>
-      <p>We are working hard to bring this feature to life. Stay tuned!</p>
-    </main>
+    <>
+      <main>
+        <ExpectedValue />
+      </main>
+    </>
   );
 }

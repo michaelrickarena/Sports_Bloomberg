@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Moneyline, Overunder, Props, Scores, Spreads, UpcomingGames, latest_Moneyline, latest_Overunder, latest_Props, latest_Spreads, DistinctProps
+from .models import Moneyline, Overunder, Props, Scores, Spreads, UpcomingGames, latest_Moneyline, latest_Overunder, latest_Props, latest_Spreads, DistinctProps, ExpectedValueMoneyline, ExpectedValueProps, UserBet
 from .serializers import (
     MoneylineSerializer,
     OverunderSerializer,
@@ -14,7 +14,10 @@ from .serializers import (
     latest_OverunderSerializer,
     latest_PropsSerializer,
     latest_SpreadsSerializer,
-    DistinctPropsSerializer
+    DistinctPropsSerializer, 
+    ExpectedValueMoneylineSerializer, 
+    ExpectedValuePropsSerializer,
+    UserBetSerializer
 )
 from rest_framework.pagination import PageNumberPagination
 from .services import get_chart_data
@@ -31,7 +34,6 @@ from django.views.decorators.csrf import csrf_exempt  # Import csrf_exempt decor
 import json
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
-
 from django.utils import timezone
 from datetime import timedelta
 from .models import UserSubscription
@@ -50,8 +52,6 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from rest_framework import generics, permissions
-from .models import UserBet
-from .serializers import UserBetSerializer
 
 load_dotenv()
 
@@ -1103,3 +1103,13 @@ class UserBetDeleteView(APIView):
             return Response(status=status.HTTP_204_NO_CONTENT)
         except UserBet.DoesNotExist:
             return Response({"detail": "Bet not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+
+class ExpectedValueMoneylineListView(generics.ListAPIView):
+    queryset = ExpectedValueMoneyline.objects.all()
+    serializer_class = ExpectedValueMoneylineSerializer
+
+
+class ExpectedValuePropsListView(generics.ListAPIView):
+    queryset = ExpectedValueProps.objects.all()
+    serializer_class = ExpectedValuePropsSerializer

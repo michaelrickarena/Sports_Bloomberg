@@ -191,7 +191,9 @@ const UserBetCreate = () => {
 
           <div>
             <label>Line</label>
-            <h5>The line you made your bet at (American odds only)</h5>
+            <p className="Arbitrage-Threshold-Explanation">
+              The line you made your bet at (American odds only)
+            </p>
             <input
               type="number"
               value={line}
@@ -201,10 +203,10 @@ const UserBetCreate = () => {
 
           <div>
             <label>Alert Threshold</label>
-            <h5>
+            <p className="Arbitrage-Threshold-Explanation">
               Enter the percentage as a whole number (e.g., 5 for a 5% return
               alert).
-            </h5>
+            </p>
             <input
               type="number"
               value={alertThreshold}

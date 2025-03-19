@@ -182,7 +182,8 @@ const PlayerProps = ({ sportType }) => {
                 padding: "8px",
                 marginTop: "16px",
                 marginBottom: "16px",
-                width: "100%",
+                width: "25%",
+                border: "1px solid #000",
               }}
             />
             {searchQuery && filteredPlayerNames.length > 0 && (
@@ -194,8 +195,9 @@ const PlayerProps = ({ sportType }) => {
                     style={{
                       padding: "8px",
                       cursor: "pointer",
+                      width: "25%",
                       backgroundColor: "#f0f0f0",
-                      borderBottom: "1px solid #ddd",
+                      borderBottom: "1px solid #FFFFFF",
                     }}
                   >
                     {player}
