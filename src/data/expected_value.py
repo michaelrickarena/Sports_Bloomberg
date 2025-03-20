@@ -97,7 +97,7 @@ class ExpectedValueAnalyzer:
                 elif ev == best_ev_team2:
                     best_bookies_team2.append((bookie, odds))
             
-            if best_ev_team1 is not None and best_ev_team1 > 0:
+            if best_ev_team1 is not None and best_ev_team1 > self.ev_target:
                 logger.info(f"Found +EV for {data['teams'][0]} in game_ID {game_id}: EV = {best_ev_team1:.2f}")
                 for bookie, odds in best_bookies_team1:
                     bookie_imp_prob = self.calculate_implied_probability(odds)
@@ -116,7 +116,7 @@ class ExpectedValueAnalyzer:
                         data['last_updated_timestamp']
                     ))
             
-            if best_ev_team2 is not None and best_ev_team2 > 0:
+            if best_ev_team2 is not None and best_ev_team2 > self.ev_target:
                 logger.info(f"Found +EV for {data['teams'][1]} in game_ID {game_id}: EV = {best_ev_team2:.2f}")
                 for bookie, odds in best_bookies_team2:
                     bookie_imp_prob = self.calculate_implied_probability(odds)

@@ -486,17 +486,6 @@ class latest_SpreadsListView(APIView):
 
 #### Registration
 
-def register(request):
-    if request.method == 'POST':
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Your account has been created successfully!')
-            return redirect('login')  # Redirect to the login page after registration
-    else:
-        form = UserCreationForm()
-    return render(request, 'registration/register.html', {'form': form})
-
 
 stripe.api_key = settings.STRIPE_TEST_SECRET_KEY
 
@@ -579,13 +568,6 @@ def create_checkout_session(request):
         # If not a POST request, return a Method Not Allowed error
         logger.error("Invalid HTTP method.")
         return JsonResponse({'error': 'Invalid HTTP method'}, status=405)
-
-
-def success(request):
-    return render(request, 'success.html')  # Create this template
-
-def cancel(request):
-    return render(request, 'cancel.html')  # Create this template
 
 @csrf_exempt
 def stripe_webhook(request):

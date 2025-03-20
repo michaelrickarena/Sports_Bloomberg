@@ -20,7 +20,7 @@ from sports.views import (
     MoneylineListView, MoneylineChartDataView, OverunderListView, PropsListView, ScoresListView, 
     SpreadsListView, UpcomingGamesListView, OverunderChartDataView, PropsChartDataView, SpreadsChartDataView, 
     latest_MoneylineListView, latest_OverunderListView, latest_PropsListView, latest_SpreadsListView, DistinctPropsListView, 
-    create_checkout_session, cancel, success, stripe_webhook, login_and_get_jwt, cancel_subscription, verify_email, get_subscription_details,
+    create_checkout_session, stripe_webhook, login_and_get_jwt, cancel_subscription, verify_email, get_subscription_details,
     password_reset_request, password_reset_confirm, UserBetCreateView, UserBetListView, UserBetDeleteView, ExpectedValueMoneylineListView, ExpectedValuePropsListView
 
 )
@@ -42,11 +42,8 @@ urlpatterns = [
     path('', homepage, name='home'),  # Root path for the homepage
     path('admin/', admin.site.urls),
     path('accounts/', include('django.contrib.auth.urls')),
-    path('accounts/register/', views.register, name='register'),
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('api/create-checkout-session/', create_checkout_session, name='create-checkout-session'),
-    path('success/', views.success, name='success'),
-    path('cancel/', views.cancel, name='cancel'),  # Cancel page route
     path('webhook/', stripe_webhook, name='stripe-webhook'),
     path('api/check-subscription', views.check_subscription, name='check_subscription'),
 

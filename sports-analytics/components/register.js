@@ -3,12 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import "../styles/login.css";
+import ClipLoader from "react-spinners/ClipLoader";
 
 const Register = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleRegister = async (event) => {
     event.preventDefault();
@@ -18,31 +20,40 @@ const Register = () => {
       return;
     }
 
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_BASE_URL}/register_and_get_jwt/`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username: username,
-          password: password,
-          email: email,
-        }),
-      }
-    );
+    setLoading(true);
 
-    const data = await response.json();
-
-    if (response.ok) {
-      alert(
-        "Please check your email to verify your account before logging in."
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/register_and_get_jwt/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username: username,
+            password: password,
+            email: email,
+          }),
+        }
       );
-      window.location.href = "/login"; // Redirect to login page instead of logging in immediately
-    } else {
-      console.error("Registration failed:", data);
-      alert(data.error || "Registration failed. Please try again.");
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(
+          "Please check your email to verify your account before logging in."
+        );
+        window.location.href = "/login"; // Redirect to login page instead of logging in immediately
+      } else {
+        console.error("Registration failed:", data);
+        alert(data.error || "Registration failed. Please try again.");
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error("Error during registration:", error);
+      alert("An error occurred. Please try again.");
+      setLoading(false);
     }
   };
 
@@ -90,7 +101,9 @@ const Register = () => {
             <Link href="/termsandconditions">Terms and Conditions</Link>
           </label>
         </div>
-        <button type="submit">Register</button>
+        <button type="submit" disabled={loading}>
+          {loading ? <ClipLoader size={20} color="#ffff" /> : "Register"}
+        </button>
       </form>
     </div>
   );
