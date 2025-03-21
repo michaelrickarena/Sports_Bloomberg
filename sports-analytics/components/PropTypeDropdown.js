@@ -1,11 +1,14 @@
 "use client";
 import React, { useState, useEffect } from "react";
 
-const PropTypeDropdown = ({ selectedPlayer, onPropTypeSelect }) => {
+const PropTypeDropdown = ({
+  selectedPlayer,
+  selectedProp,
+  onPropTypeSelect,
+}) => {
   const [propTypes, setPropTypes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentPlayer, setCurrentPlayer] = useState(null);
-  const [selectedProp, setSelectedProp] = useState("");
 
   useEffect(() => {
     if (!selectedPlayer || selectedPlayer === currentPlayer) {
@@ -28,7 +31,11 @@ const PropTypeDropdown = ({ selectedPlayer, onPropTypeSelect }) => {
 
         const data = await response.json();
 
-        setPropTypes(data.results || []);
+        // Ensure data.results is an array and filter out invalid entries
+        const validPropTypes = (data.results || []).filter(
+          (prop) => typeof prop === "string" && prop.length > 0
+        ); // Only keep valid strings
+        setPropTypes([...new Set(validPropTypes)]); // Remove duplicates
       } catch (error) {
         console.error("Error fetching prop types:", error);
       } finally {
@@ -39,16 +46,9 @@ const PropTypeDropdown = ({ selectedPlayer, onPropTypeSelect }) => {
     fetchPropTypes();
   }, [selectedPlayer, currentPlayer]);
 
-  useEffect(() => {
-    if (selectedProp) {
-    }
-  }, [selectedProp]); // This will log when selectedProp changes
-
   const handleChange = (event) => {
     const selectedValue = event.target.value;
-
-    setSelectedProp(selectedValue); // Store the selected prop
-    onPropTypeSelect(selectedValue); // Notify the parent component of the change
+    onPropTypeSelect(selectedValue); // Notify the parent component directly
   };
 
   return (
@@ -56,7 +56,7 @@ const PropTypeDropdown = ({ selectedPlayer, onPropTypeSelect }) => {
       {loading ? (
         <div>Loading prop types...</div>
       ) : propTypes.length > 0 ? (
-        <select value={selectedProp} onChange={handleChange}>
+        <select value={selectedProp || ""} onChange={handleChange}>
           <option value="" disabled>
             Select a prop type
           </option>

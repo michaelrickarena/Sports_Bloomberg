@@ -191,7 +191,7 @@ class ExpectedValueAnalyzer:
                 imp_probs_yes = [self.calculate_implied_probability(o) for o in odds_yes]
                 avg_imp_prob_yes = sorted(imp_probs_yes)[len(imp_probs_yes) // 2]  # Median
                 
-                assumed_overround = 1.225
+                assumed_overround = 1.25
                 fair_prob_yes = avg_imp_prob_yes / assumed_overround
 
                 for bookie, odds in outcomes["yes"]:

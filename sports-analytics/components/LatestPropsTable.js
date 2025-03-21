@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import "../styles/LatestMoneylineTable.css"; // Use the same styling
+import "../styles/LatestMoneylineTable.css";
 import { formatTitle } from "../utils/utils.js";
 
-const LatestPropsTable = ({ playerName, propType }) => {
+const LatestPropsTable = ({
+  playerName,
+  propType,
+  selectedBetType,
+  isOverUnderProp,
+}) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [sortConfig, setSortConfig] = useState({
-    key: "betting_line", // Default column to sort
-    direction: "ascending", // Default sort direction
+    key: "betting_line",
+    direction: "ascending",
   });
 
   useEffect(() => {
@@ -36,14 +41,16 @@ const LatestPropsTable = ({ playerName, propType }) => {
 
         const result = await response.json();
 
-        // Check if the data is an array or wrapped in a 'results' key
-        if (Array.isArray(result)) {
-          setData(result);
-        } else if (result.results && Array.isArray(result.results)) {
-          setData(result.results);
-        } else {
-          setData([]); // In case of an unexpected structure
+        let fetchedData = Array.isArray(result) ? result : result.results || [];
+
+        // Filter data for over/under props based on selectedBetType, if set
+        if (isOverUnderProp && selectedBetType) {
+          fetchedData = fetchedData.filter(
+            (item) => item.bet_type === selectedBetType
+          );
         }
+
+        setData(fetchedData);
       } catch (err) {
         setError("Failed to load data.");
       } finally {
@@ -52,7 +59,7 @@ const LatestPropsTable = ({ playerName, propType }) => {
     };
 
     fetchData();
-  }, [playerName, propType]);
+  }, [playerName, propType, selectedBetType, isOverUnderProp]);
 
   const sortData = (key) => {
     let direction = "ascending";
@@ -64,7 +71,7 @@ const LatestPropsTable = ({ playerName, propType }) => {
       if (key === "betting_line" || key === "betting_point") {
         return direction === "ascending" ? a[key] - b[key] : b[key] - a[key];
       }
-      return 0; // Default case, if the column isn't one of those two
+      return 0;
     });
 
     setData(sortedData);
@@ -77,6 +84,11 @@ const LatestPropsTable = ({ playerName, propType }) => {
 
   if (error) {
     return <div>Error: {error}</div>;
+  }
+
+  // For over/under props, don't render until selectedBetType is set
+  if (isOverUnderProp && !selectedBetType) {
+    return <div>Please select Over or Under to view the table.</div>;
   }
 
   return (
@@ -132,6 +144,8 @@ const LatestPropsTable = ({ playerName, propType }) => {
 LatestPropsTable.propTypes = {
   playerName: PropTypes.string.isRequired,
   propType: PropTypes.string.isRequired,
+  selectedBetType: PropTypes.string, // Optional, can be null
+  isOverUnderProp: PropTypes.bool, // Optional, can be false
 };
 
 export default LatestPropsTable;

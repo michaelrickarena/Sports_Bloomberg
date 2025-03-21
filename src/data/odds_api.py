@@ -145,22 +145,27 @@ class Odds_API:
                 'player_pass_rush_reception_tds', 'player_pass_rush_reception_yds', 
                 'player_pass_tds', 'player_pass_yds', 'player_receptions', 'player_reception_longest', 
                 'player_rush_longest', 'player_rush_reception_tds', 'player_rush_reception_yds',
-                'player_rush_yds', 'player_1st_td', 'player_anytime_td'
+                'player_rush_yds', 'player_1st_td', 'player_anytime_td', 'player_defensive_interceptions',
+                'player_kicking_points', 'player_pass_attempts', 'player_pass_completions', 'player_pass_longest_completion',
+                'player_pass_yds_q1', 'player_pats', 'player_reception_tds', 'player_rush_attempts', 'player_rush_tds',
+                'player_sacks', 'player_solo_tackles', 'player_tackles_assists', 'player_last_td'
             ],
             'NBA': [
-                'player_points', 'player_rebounds', 'player_assists', 
-                'player_threes', 'player_blocks', 'player_steals', 
-                'player_points_rebounds', 'player_turnovers', 'player_points_assists', 
-                'player_rebounds_assists', 'player_first_basket'
+                'player_points', 'player_points_q1', 'player_rebounds', 'player_rebounds_q1', 'player_assists', 
+                'player_assists_q1', 'player_threes', 'player_blocks', 'player_steals', 'player_blocks_steals', 
+                'player_points_rebounds', 'player_turnovers', 'player_points_rebounds_assists', 'player_points_assists', 
+                'player_rebounds_assists', 'player_field_goals', 'player_frees_made', 'player_frees_attempts', 'player_first_basket',
+                'player_first_team_basket', 'player_double_double', 'player_triple_double'
             ],
             'NHL': [
                 'player_points', 'player_power_play_points', 'player_assists', 
                 'player_blocked_shots', 'player_shots_on_goal', 'player_goals', 
-                'player_total_saves', 'player_goal_scorer_first', 'player_goal_scorer_anytime'
+                'player_total_saves', 'player_goal_scorer_first', 'player_goal_scorer_last', 'player_goal_scorer_anytime'
             ],
             'MLB': [
-                'batter_home_runs', 'batter_hits', 'batter_total_bases', 
-                'batter_runs_scored', 'batter_hits_runs_rbis', 'pitcher_strikeouts', 
+                'batter_home_runs', 'batter_first_home_run', 'batter_hits', 'batter_total_bases', 
+                'batter_runs_scored', 'batter_hits_runs_rbis', 'pitcher_strikeouts', 'batter_singles',
+                'batter_doubles', 'batter_triples', 'batter_strikeouts', 'pitcher_record_a_win', 
                 'pitcher_earned_runs', 'batter_rbis', 'batter_walks', 'batter_stolen_bases', 
                 'pitcher_hits_allowed', 'pitcher_outs', 'pitcher_walks'
             ]

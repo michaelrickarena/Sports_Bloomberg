@@ -36,6 +36,7 @@ const PropDataGraph = ({
   bet_type_name,
   selectedBookies,
   updateBookies,
+  selectedBetType, // New prop added for filtering, now always provided
 }) => {
   const [propData, setPropData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -71,9 +72,18 @@ const PropDataGraph = ({
           return;
         }
 
-        setPropData(data.results || []);
+        let filteredData = data.results || [];
+
+        // Filter data based on selectedBetType only if it’s not null
+        if (selectedBetType !== null) {
+          filteredData = filteredData.filter(
+            (item) => item.bet_type === selectedBetType
+          );
+        }
+
+        setPropData(filteredData);
         const uniqueBookies = [
-          ...new Set(data.results.map((item) => item.bookie)),
+          ...new Set(filteredData.map((item) => item.bookie)),
         ];
         updateBookies(uniqueBookies);
       } catch (error) {
@@ -84,7 +94,7 @@ const PropDataGraph = ({
     };
 
     fetchPropData();
-  }, [selectedPlayer, selectedProp, bet_type, updateBookies]);
+  }, [selectedPlayer, selectedProp, bet_type, selectedBetType, updateBookies]);
 
   useEffect(() => {}, [propData, selectedBookies]);
 
@@ -98,7 +108,7 @@ const PropDataGraph = ({
   }
 
   if (propData.length === 0) {
-    return <div>No valid data for this prop.</div>;
+    return <div>No valid data for this prop and bet type.</div>;
   }
 
   const allTimestamps = [
@@ -122,7 +132,7 @@ const PropDataGraph = ({
   });
 
   const chartData = {
-    labels: sortedTimestamps.map((timestamp) => formatTimestamp(timestamp)), // Use formatTimestamp here
+    labels: sortedTimestamps.map((timestamp) => formatTimestamp(timestamp)),
     datasets: Object.keys(bookieData)
       .filter((bookie) => selectedBookies.includes(bookie))
       .map((bookie) => {
@@ -152,7 +162,7 @@ const PropDataGraph = ({
     );
 
   if (chartData.datasets.length === 0 || !isDataValid) {
-    return <div>No Valid Data to Graph - This Prop Is Not An Over/Under.</div>;
+    return <div>No Valid Data to Graph for {bet_type_name}</div>;
   }
 
   return (
