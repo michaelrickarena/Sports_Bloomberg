@@ -2,6 +2,7 @@
   background-color: #333;
   color: white;
   padding: 1rem;
+  position: relative;
 }
 
 .navList {
@@ -12,14 +13,37 @@
 }
 
 .navItem {
-  margin-right: 20px; /* Space between items */
+  margin-right: 20px;
   position: relative;
   cursor: pointer;
 }
 
-.navItem a {
+.navItem a,
+.navItem .navLink {
+  /* Changed from button to .navLink */
   color: white;
   text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: "Roboto", sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+/* Remove hover effects for navLink (was button) */
+.navItem .navLink:hover,
+.navItem .navLink:focus {
+  background: none;
+  outline: none;
+}
+
+/* Ensure links don’t highlight either */
+.navItem a:hover,
+.navItem a:focus {
+  background: none;
+  outline: none;
 }
 
 .dropdown {
@@ -45,5 +69,106 @@
 }
 
 .rightAlign {
-  margin-left: auto; /* Pushes items to the right */
+  margin-left: auto;
+}
+
+/* Always-Visible Items */
+.alwaysVisible {
+  display: none;
+}
+
+/* Hamburger Menu Styles */
+.hamburger {
+  display: none;
+  cursor: pointer;
+}
+
+.hamburger span {
+  display: block;
+  width: 25px;
+  height: 3px;
+  background: white;
+  margin: 5px 0;
+}
+
+/* Media Query for Small Screens */
+@media (max-width: 768px) {
+  .nav {
+    padding: 1.5rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .alwaysVisible {
+    display: flex;
+    gap: 20px;
+  }
+
+  .alwaysVisible a {
+    color: white;
+    text-decoration: none;
+    font-size: 1rem;
+    font-family: "Roboto", sans-serif;
+    font-weight: 400;
+  }
+
+  .alwaysVisible a:hover,
+  .alwaysVisible a:focus {
+    background: none;
+    outline: none;
+  }
+
+  .hamburger {
+    display: block;
+    position: absolute;
+    top: 1.5rem;
+    right: 1rem;
+  }
+
+  .navList {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: #333;
+    flex-direction: column;
+    padding: 1rem;
+  }
+
+  .navList.open {
+    display: flex;
+  }
+
+  .navItem {
+    margin: 10px 0;
+  }
+
+  .dropdown {
+    position: static;
+    background: transparent;
+    padding-left: 20px;
+    box-shadow: none;
+    display: block; /* Ensure visibility when state is true */
+  }
+
+  .rightAlign {
+    margin-left: 0;
+  }
+}
+
+/* Large Screens */
+@media (min-width: 769px) {
+  .alwaysVisible {
+    display: none;
+  }
+
+  .hamburger {
+    display: none;
+  }
+
+  .navList {
+    display: flex;
+  }
 }

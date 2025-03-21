@@ -27,6 +27,31 @@ class ExpectedValueAnalyzer:
         else:
             payout = (100 / abs(odds)) * bet_amount
         return (fair_probability * payout) - ((1 - fair_probability) * bet_amount)
+    
+    def get_assumed_overround(self, odds):
+        """Determine the assumed overround based on the median odds tier."""
+        if odds <= -300:
+            return 1.0412
+        elif odds <= -200:
+            return 1.0511
+        elif odds <= -100:
+            return 1.0597
+        elif odds <= 150:
+            return 1.096
+        elif odds <= 300:
+            return 1.135
+        elif odds <= 500:
+            return 1.2291
+        elif odds <= 800:
+            return 1.3219
+        elif odds <= 1200:
+            return 1.4125
+        elif odds <= 2000:
+            return 1.5129
+        elif odds <= 3000:
+            return 1.6342
+        else:
+            return None  # Should not occur due to odds > 1100 filter
 
     def analyze_ml(self):
         """Analyze moneyline bets to find all +EV bets with max EV, returning a list of tuples."""
@@ -184,14 +209,25 @@ class ExpectedValueAnalyzer:
                     continue
 
                 odds_yes = [odds for _, odds in outcomes["yes"]]
-                if any(odds > 1100 for odds in odds_yes):
+                if any(odds > 1200 for odds in odds_yes):
                     logger.debug(f"Skipping prop {key}: Contains longshot odds > +1000")
                     continue
                     
                 imp_probs_yes = [self.calculate_implied_probability(o) for o in odds_yes]
-                avg_imp_prob_yes = sorted(imp_probs_yes)[len(imp_probs_yes) // 2]  # Median
+                avg_imp_prob_yes = sorted(imp_probs_yes)[len(imp_probs_yes) // 2]  # Median implied probability
                 
-                assumed_overround = 1.25
+                # Calculate median odds manually
+                sorted_odds = sorted(odds_yes)
+                mid = len(sorted_odds) // 2
+                if len(sorted_odds) % 2 == 0:
+                    median_odds = (sorted_odds[mid - 1] + sorted_odds[mid]) / 2
+                else:
+                    median_odds = sorted_odds[mid]
+                
+                assumed_overround = self.get_assumed_overround(median_odds)
+                if assumed_overround is None:
+                    logger.warning(f"Invalid median odds {median_odds} for prop {key}, skipping")
+                    continue
                 fair_prob_yes = avg_imp_prob_yes / assumed_overround
 
                 for bookie, odds in outcomes["yes"]:
@@ -214,50 +250,116 @@ class ExpectedValueAnalyzer:
                             data['sport_type'],
                             data['last_updated_timestamp']
                         ))
-                
+                    
             elif "over" in outcomes and "under" in outcomes:
                 bookies_over = set(bookie for bookie, _ in outcomes["over"])
                 bookies_under = set(bookie for bookie, _ in outcomes["under"])
-                if len(bookies_over) < self.min_bookies or len(bookies_under) < self.min_bookies:
-                    logger.debug(f"Skipping prop {key}: Insufficient bookies (over: {len(bookies_over)}, under: {len(bookies_under)} < {self.min_bookies})")
-                    continue
+                
+                if len(bookies_over) >= self.min_bookies and len(bookies_under) >= self.min_bookies:
+                    # Full market overround analysis
+                    odds_over = [odds for _, odds in outcomes["over"]]
+                    odds_under = [odds for _, odds in outcomes["under"]]
+                    imp_probs_over = [self.calculate_implied_probability(o) for o in odds_over]
+                    imp_probs_under = [self.calculate_implied_probability(o) for o in odds_under]
+                    avg_imp_prob_over = sum(imp_probs_over) / len(imp_probs_over)
+                    avg_imp_prob_under = sum(imp_probs_under) / len(imp_probs_under)
 
-                odds_over = [odds for _, odds in outcomes["over"]]
-                odds_under = [odds for _, odds in outcomes["under"]]
-                imp_probs_over = [self.calculate_implied_probability(o) for o in odds_over]
-                imp_probs_under = [self.calculate_implied_probability(o) for o in odds_under]
-                avg_imp_prob_over = sum(imp_probs_over) / len(imp_probs_over)
-                avg_imp_prob_under = sum(imp_probs_under) / len(imp_probs_under)
+                    market_overround = avg_imp_prob_over + avg_imp_prob_under
+                    if market_overround <= 0:
+                        logger.warning(f"Invalid market overround {market_overround} for prop {key}, skipping")
+                        continue
+                    fair_prob_over = avg_imp_prob_over / market_overround
+                    fair_prob_under = avg_imp_prob_under / market_overround
 
-                market_overround = avg_imp_prob_over + avg_imp_prob_under
-                if market_overround <= 0:
-                    logger.warning(f"Invalid market overround {market_overround} for prop {key}, skipping")
-                    continue
-                fair_prob_over = avg_imp_prob_over / market_overround
-                fair_prob_under = avg_imp_prob_under / market_overround
-
-                for bet_type, outcome_odds in outcomes.items():
-                    fair_prob = fair_prob_over if bet_type == "over" else fair_prob_under
-                    for bookie, odds in outcome_odds:
-                        ev = self.calculate_expected_value(odds, fair_prob)
+                    for bet_type, outcome_odds in outcomes.items():
+                        fair_prob = fair_prob_over if bet_type == "over" else fair_prob_under
+                        for bookie, odds in outcome_odds:
+                            ev = self.calculate_expected_value(odds, fair_prob)
+                            if ev > self.ev_target:
+                                bookie_imp_prob = self.calculate_implied_probability(odds)
+                                logger.debug(f"Found +EV for '{bet_type}' prop {key} at {bookie}: EV = {ev:.2f}, fair_prob = {fair_prob:.4f}, implied_prob = {bookie_imp_prob:.4f}")
+                                self.results.append((
+                                    data['game_ID'],
+                                    bookie,
+                                    data['Prop_Type'],
+                                    bet_type,
+                                    data['Player_Name'],
+                                    data['Betting_Point'],
+                                    odds,
+                                    round(ev, 2),
+                                    round(fair_prob, 4),
+                                    round(bookie_imp_prob, 4),
+                                    round(market_overround, 4),
+                                    data['sport_type'],
+                                    data['last_updated_timestamp']
+                                ))
+                elif len(bookies_over) >= self.min_bookies:
+                    # Fallback: analyze "over" with assumed overround
+                    odds_over = [odds for _, odds in outcomes["over"]]
+                    sorted_odds = sorted(odds_over)
+                    mid = len(sorted_odds) // 2
+                    median_odds = (sorted_odds[mid - 1] + sorted_odds[mid]) / 2 if len(sorted_odds) % 2 == 0 else sorted_odds[mid]
+                    assumed_overround = self.get_assumed_overround(median_odds)
+                    if assumed_overround is None:
+                        logger.warning(f"Invalid median odds {median_odds} for prop {key}, skipping")
+                        continue
+                    imp_probs_over = [self.calculate_implied_probability(o) for o in odds_over]
+                    fair_prob_over = sum(imp_probs_over) / len(imp_probs_over) / assumed_overround
+                    for bookie, odds in outcomes["over"]:
+                        ev = self.calculate_expected_value(odds, fair_prob_over)
                         if ev > self.ev_target:
                             bookie_imp_prob = self.calculate_implied_probability(odds)
-                            logger.debug(f"Found +EV for '{bet_type}' prop {key} at {bookie}: EV = {ev:.2f}, fair_prob = {fair_prob:.4f}, implied_prob = {bookie_imp_prob:.4f}")
+                            logger.debug(f"Found +EV for 'over' prop {key} at {bookie}: EV = {ev:.2f}, fair_prob = {fair_prob_over:.4f}, implied_prob = {bookie_imp_prob:.4f}")
                             self.results.append((
                                 data['game_ID'],
                                 bookie,
                                 data['Prop_Type'],
-                                bet_type,
+                                "over",
                                 data['Player_Name'],
                                 data['Betting_Point'],
                                 odds,
                                 round(ev, 2),
-                                round(fair_prob, 4),
+                                round(fair_prob_over, 4),
                                 round(bookie_imp_prob, 4),
-                                round(market_overround, 4),
+                                round(assumed_overround, 4),
                                 data['sport_type'],
                                 data['last_updated_timestamp']
                             ))
+                elif len(bookies_under) >= self.min_bookies:
+                    # Fallback: analyze "under" with assumed overround
+                    odds_under = [odds for _, odds in outcomes["under"]]
+                    sorted_odds = sorted(odds_under)
+                    mid = len(sorted_odds) // 2
+                    median_odds = (sorted_odds[mid - 1] + sorted_odds[mid]) / 2 if len(sorted_odds) % 2 == 0 else sorted_odds[mid]
+                    assumed_overround = self.get_assumed_overround(median_odds)
+                    if assumed_overround is None:
+                        logger.warning(f"Invalid median odds {median_odds} for prop {key}, skipping")
+                        continue
+                    imp_probs_under = [self.calculate_implied_probability(o) for o in odds_under]
+                    fair_prob_under = sum(imp_probs_under) / len(imp_probs_under) / assumed_overround
+                    for bookie, odds in outcomes["under"]:
+                        ev = self.calculate_expected_value(odds, fair_prob_under)
+                        if ev > self.ev_target:
+                            bookie_imp_prob = self.calculate_implied_probability(odds)
+                            logger.debug(f"Found +EV for 'under' prop {key} at {bookie}: EV = {ev:.2f}, fair_prob = {fair_prob_under:.4f}, implied_prob = {bookie_imp_prob:.4f}")
+                            self.results.append((
+                                data['game_ID'],
+                                bookie,
+                                data['Prop_Type'],
+                                "under",
+                                data['Player_Name'],
+                                data['Betting_Point'],
+                                odds,
+                                round(ev, 2),
+                                round(fair_prob_under, 4),
+                                round(bookie_imp_prob, 4),
+                                round(assumed_overround, 4),
+                                data['sport_type'],
+                                data['last_updated_timestamp']
+                            ))
+                else:
+                    logger.debug(f"Skipping prop {key}: Insufficient bookies for both over and under")
+                    continue
             else:
                 logger.debug(f"Skipping prop {key}: Only one outcome present - {list(outcomes.keys())}")
                 continue

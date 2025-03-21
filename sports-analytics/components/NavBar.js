@@ -15,11 +15,27 @@ const NavBar = () => {
   const [showDropdownMLB, setShowDropdownMLB] = useState(false);
   const [showDropdownNBA, setShowDropdownNBA] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const token = Cookies.get("access_token");
     setIsLoggedIn(!!token);
   }, [pathname]);
+
+  useEffect(() => {
+    if (isMounted) {
+      setIsMenuOpen(false);
+      setShowDropdown(false);
+      setShowDropdownNHL(false);
+      setShowDropdownMLB(false);
+      setShowDropdownNBA(false);
+    }
+  }, [pathname, isMounted]);
 
   const handleLogout = () => {
     Cookies.remove("access_token");
@@ -35,15 +51,35 @@ const NavBar = () => {
     router.push("/");
   };
 
+  // Handle dropdown toggle for mobile with single click
+  const handleDropdownToggle = (setter, current) => {
+    setter(!current);
+  };
+
+  if (!isMounted) {
+    return null;
+  }
+
   return (
     <nav className={styles.nav}>
-      <ul className={styles.navList}>
-        {/* Home as the first item */}
+      <div className={styles.alwaysVisible}>
+        <Link href="/">Home</Link>
+        <Link href="/expected-value">Expected Value</Link>
+      </div>
+
+      <div
+        className={styles.hamburger}
+        onClick={() => setIsMenuOpen(!isMenuOpen)}
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+
+      <ul className={`${styles.navList} ${isMenuOpen ? styles.open : ""}`}>
         <li className={styles.navItem}>
           <Link href="/">Home</Link>
         </li>
-
-        {/* Expected Value as the second item */}
         <li className={styles.navItem}>
           <Link href="/expected-value">Expected Value</Link>
         </li>
@@ -53,8 +89,12 @@ const NavBar = () => {
           className={styles.navItem}
           onMouseEnter={() => setShowDropdown(true)}
           onMouseLeave={() => setShowDropdown(false)}
+          onClick={(e) => {
+            e.stopPropagation(); // Prevent bubbling to hamburger
+            handleDropdownToggle(setShowDropdown, showDropdown);
+          }}
         >
-          NFL
+          <span className={styles.navLink}>NFL</span>
           {showDropdown && (
             <ul className={styles.dropdown}>
               <li>
@@ -78,8 +118,12 @@ const NavBar = () => {
           className={styles.navItem}
           onMouseEnter={() => setShowDropdownNHL(true)}
           onMouseLeave={() => setShowDropdownNHL(false)}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDropdownToggle(setShowDropdownNHL, showDropdownNHL);
+          }}
         >
-          NHL
+          <span className={styles.navLink}>NHL</span>
           {showDropdownNHL && (
             <ul className={styles.dropdown}>
               <li>
@@ -103,8 +147,12 @@ const NavBar = () => {
           className={styles.navItem}
           onMouseEnter={() => setShowDropdownMLB(true)}
           onMouseLeave={() => setShowDropdownMLB(false)}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDropdownToggle(setShowDropdownMLB, showDropdownMLB);
+          }}
         >
-          MLB
+          <span className={styles.navLink}>MLB</span>
           {showDropdownMLB && (
             <ul className={styles.dropdown}>
               <li>
@@ -128,8 +176,12 @@ const NavBar = () => {
           className={styles.navItem}
           onMouseEnter={() => setShowDropdownNBA(true)}
           onMouseLeave={() => setShowDropdownNBA(false)}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDropdownToggle(setShowDropdownNBA, showDropdownNBA);
+          }}
         >
-          NBA
+          <span className={styles.navLink}>NBA</span>
           {showDropdownNBA && (
             <ul className={styles.dropdown}>
               <li>
@@ -148,12 +200,10 @@ const NavBar = () => {
           )}
         </li>
 
-        {/* Arbitrage Opportunities as the last item before auth links */}
         <li className={styles.navItem}>
           <Link href="/arbitrage-opportunities">Arbitrage</Link>
         </li>
 
-        {/* User Authentication Links */}
         {isLoggedIn ? (
           <>
             <li className={`${styles.navItem} ${styles.rightAlign}`}>
