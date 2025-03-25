@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 // Load Stripe public key
 const stripePromise = loadStripe(
@@ -18,7 +18,6 @@ const setCookie = (name, value, days) => {
     date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
     expires = `; expires=${date.toUTCString()}`;
   }
-  // Removed HttpOnly since it cannot be set from JavaScript
   document.cookie = `${name}=${value}; path=/${expires}`;
 };
 
@@ -43,6 +42,7 @@ const CheckoutForm = () => {
   const [isSubscribed, setIsSubscribed] = useState(true);
   const [accessToken, setAccessToken] = useState(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // On mount, load the access token from cookies
   useEffect(() => {
@@ -93,71 +93,72 @@ const CheckoutForm = () => {
     }
   }, []);
 
-  // Check subscription status, refreshing token if necessary
-  useEffect(() => {
-    const checkSubscription = async () => {
-      try {
-        let token = accessToken;
+  // Check subscription status and update localStorage
+  const checkSubscription = useCallback(async () => {
+    try {
+      let token = accessToken;
 
+      if (!token) {
+        token = await refreshAccessToken();
         if (!token) {
-          token = await refreshAccessToken();
-          if (!token) {
-            throw new Error("Authentication token is still missing.");
-          }
+          throw new Error("Authentication token is still missing.");
         }
-
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE_URL}/check-subscription`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (response.status === 401) {
-          token = await refreshAccessToken();
-          if (token) {
-            const retryResponse = await fetch(
-              `${process.env.NEXT_PUBLIC_API_BASE_URL}/check-subscription`,
-              {
-                method: "GET",
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              }
-            );
-
-            if (!retryResponse.ok) {
-              throw new Error(
-                "Error fetching subscription status after retry."
-              );
-            }
-
-            const data = await retryResponse.json();
-            if (data.status === "inactive" || data.status === "expired") {
-              setIsSubscribed(false);
-            }
-          } else {
-            throw new Error("Token refresh failed or still invalid.");
-          }
-        } else if (response.ok) {
-          const data = await response.json();
-          if (data.status === "inactive" || data.status === "expired") {
-            setIsSubscribed(false);
-          }
-        } else {
-          throw new Error("Error fetching subscription status.");
-        }
-      } catch (error) {
-        setError("Error checking subscription.");
-        console.error(error);
       }
-    };
 
-    checkSubscription();
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/check-subscription`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 401) {
+        token = await refreshAccessToken();
+        if (token) {
+          const retryResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_API_BASE_URL}/check-subscription`,
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!retryResponse.ok) {
+            throw new Error("Error fetching subscription status after retry.");
+          }
+
+          const data = await retryResponse.json();
+          const status = data.status === "active" ? "active" : "inactive";
+          localStorage.setItem("subscription_status", status);
+          setIsSubscribed(data.status === "active");
+        } else {
+          throw new Error("Token refresh failed or still invalid.");
+        }
+      } else if (response.ok) {
+        const data = await response.json();
+        const status = data.status === "active" ? "active" : "inactive";
+        localStorage.setItem("subscription_status", status);
+        setIsSubscribed(data.status === "active");
+      } else {
+        throw new Error("Error fetching subscription status.");
+      }
+    } catch (error) {
+      setError("Error checking subscription.");
+      console.error(error);
+      localStorage.setItem("subscription_status", "inactive"); // Fallback
+      setIsSubscribed(false);
+    }
   }, [accessToken, refreshAccessToken]);
+
+  // Run checkSubscription on initial load, refresh, or redirect
+  useEffect(() => {
+    checkSubscription();
+  }, [searchParams, checkSubscription]); // Trigger on searchParams change
 
   // Handle Stripe checkout session creation and redirection
   const handleCheckout = async () => {

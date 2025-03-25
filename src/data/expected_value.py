@@ -3,7 +3,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ExpectedValueAnalyzer:
-    def __init__(self, bet_lines, min_bookies=4, ev_target=1.5):
+    def __init__(self, bet_lines, min_bookies=5, ev_target=2):
         """Initialize the analyzer with bet lines (moneylines or props) and a minimum bookie threshold."""
         self.bet_lines = bet_lines
         self.min_bookies = min_bookies
@@ -12,6 +12,20 @@ class ExpectedValueAnalyzer:
         self.multi_outcome_props = {
             'player_1st_td', 'player_last_td', 'player_first_basket', 'player_first_team_basket',
             'player_goal_scorer_first', 'player_goal_scorer_last', 'batter_first_home_run'
+        }
+        # Initialize dictionary to store overrounds by odds range
+        self.overround_by_range = {
+            (-float('inf'), -300): [],
+            (-300, -200): [],
+            (-200, -100): [],
+            (-100, 150): [],
+            (150, 300): [],
+            (300, 500): [],
+            (500, 800): [],
+            (800, 1200): [],
+            (1200, 2000): [],
+            (2000, 3000): [],
+            (3000, float('inf')): []
         }
 
     def calculate_implied_probability(self, odds):
@@ -33,7 +47,7 @@ class ExpectedValueAnalyzer:
         return (fair_probability * payout) - ((1 - fair_probability) * bet_amount)
 
     def get_assumed_overround(self, odds):
-        """Determine the assumed overround based on the median odds tier."""
+        """Determine the static assumed overround based on the median odds tier."""
         if odds <= -300:
             return 1.0312
         elif odds <= -200:
@@ -41,21 +55,63 @@ class ExpectedValueAnalyzer:
         elif odds <= -100:
             return 1.0497
         elif odds <= 150:
-            return 1.0562
+            return 1.0622
         elif odds <= 300:
-            return 1.0797
+            return 1.0997
         elif odds <= 500:
-            return 1.145
+            return 1.1945
         elif odds <= 800:
-            return 1.2349
+            return 1.3997
         elif odds <= 1200:
-            return 1.2875
+            return 1.4989
         elif odds <= 2000:
-            return 1.3335
+            return 1.625
         elif odds <= 3000:
-            return 1.3999
+            return 1.775
+        elif odds <= 5000:
+            return 1.997
         else:
             return None
+
+    def get_odds_range(self, odds):
+        """Determine the odds range for a given odds value."""
+        if odds <= -300:
+            return (-float('inf'), -300)
+        elif odds <= -200:
+            return (-300, -200)
+        elif odds <= -100:
+            return (-200, -100)
+        elif odds <= 150:
+            return (-100, 150)
+        elif odds <= 300:
+            return (150, 300)
+        elif odds <= 500:
+            return (300, 500)
+        elif odds <= 800:
+            return (500, 800)
+        elif odds <= 1200:
+            return (800, 1200)
+        elif odds <= 2000:
+            return (1200, 2000)
+        elif odds <= 3000:
+            return (2000, 3000)
+        else:
+            return (3000, float('inf'))
+
+    def get_median_assumed_overround(self, median_odds):
+        """Get the median assumed overround for the given median odds, falling back to static if necessary."""
+        range_key = self.get_odds_range(median_odds)
+        overrounds = self.overround_by_range.get(range_key, [])
+        if overrounds:
+            sorted_overrounds = sorted(overrounds)
+            n = len(sorted_overrounds)
+            mid = n // 2
+            if n % 2 == 0:
+                return (sorted_overrounds[mid - 1] + sorted_overrounds[mid]) / 2
+            else:
+                return sorted_overrounds[mid]
+        else:
+            return self.get_assumed_overround(median_odds)
 
     def analyze_ml(self):
         """Analyze moneyline bets to find all +EV bets with max EV, returning a list of tuples."""
@@ -150,7 +206,7 @@ class ExpectedValueAnalyzer:
         multi_outcome_dict = {}
         single_outcome_dict = {}
 
-        # Group prop bets
+        # Group prop bets (unchanged)
         for line in self.bet_lines:
             game_id, last_updated_timestamp, bookie, prop_type, bet_type, player_name, betting_line, betting_point, sport_type = line
             if prop_type in self.multi_outcome_props and bet_type.lower() == "yes":
@@ -238,6 +294,8 @@ class ExpectedValueAnalyzer:
                         continue
                     ev = self.calculate_expected_value(odds, fair_prob)
                     if ev > self.ev_target:
+                        if odds > 2000:  # Cap at +2000
+                            continue
                         bookie_imp_prob = self.calculate_implied_probability(odds)
                         self.results.append((
                             game_data['game_ID'], bookie, game_data['Prop_Type'], "yes",
@@ -246,7 +304,7 @@ class ExpectedValueAnalyzer:
                             game_data['sport_type'], game_data['last_updated_timestamp']
                         ))
 
-        # Analyze single-outcome props
+        # Pass 1: Collect overrounds for single-outcome props
         for key, data in single_outcome_dict.items():
             outcomes = data['outcomes']
             if "yes" in outcomes or "no" in outcomes:
@@ -259,9 +317,55 @@ class ExpectedValueAnalyzer:
                 avg_imp_prob_yes = sum(imp_probs_yes) / len(imp_probs_yes) if imp_probs_yes else 0
                 avg_imp_prob_no = sum(imp_probs_no) / len(imp_probs_no) if imp_probs_no else 0
 
-                # Check if both sides have sufficient bookies
+                if ("yes" in outcomes and "no" in outcomes and
+                    len(bookies_yes) >= self.min_bookies and len(bookies_no) >= self.min_bookies):
+                    market_overround = avg_imp_prob_yes + avg_imp_prob_no
+                    if market_overround > 0:
+                        all_odds = odds_yes + odds_no
+                        if all_odds:
+                            sorted_odds = sorted(all_odds)
+                            mid = len(sorted_odds) // 2
+                            median_odds = (sorted_odds[mid - 1] + sorted_odds[mid]) / 2 if len(sorted_odds) % 2 == 0 else sorted_odds[mid]
+                            range_key = self.get_odds_range(median_odds)
+                            self.overround_by_range[range_key].append(market_overround)
+
+            elif "over" in outcomes or "under" in outcomes:
+                bookies_over = set(bookie for bookie, _ in outcomes.get("over", []))
+                bookies_under = set(bookie for bookie, _ in outcomes.get("under", []))
+                odds_over = [odds for _, odds in outcomes.get("over", []) if odds is not None]
+                odds_under = [odds for _, odds in outcomes.get("under", []) if odds is not None]
+                imp_probs_over = [self.calculate_implied_probability(o) for o in odds_over] if odds_over else []
+                imp_probs_under = [self.calculate_implied_probability(o) for o in odds_under] if odds_under else []
+                avg_imp_prob_over = sum(imp_probs_over) / len(imp_probs_over) if imp_probs_over else 0
+                avg_imp_prob_under = sum(imp_probs_under) / len(imp_probs_under) if imp_probs_under else 0
+
+                if ("over" in outcomes and "under" in outcomes and
+                    len(bookies_over) >= self.min_bookies and len(bookies_under) >= self.min_bookies):
+                    market_overround = avg_imp_prob_over + avg_imp_prob_under
+                    if market_overround > 0:
+                        all_odds = odds_over + odds_under
+                        if all_odds:
+                            sorted_odds = sorted(all_odds)
+                            mid = len(sorted_odds) // 2
+                            median_odds = (sorted_odds[mid - 1] + sorted_odds[mid]) / 2 if len(sorted_odds) % 2 == 0 else sorted_odds[mid]
+                            range_key = self.get_odds_range(median_odds)
+                            self.overround_by_range[range_key].append(market_overround)
+
+        # Pass 2: Analyze single-outcome props
+        for key, data in single_outcome_dict.items():
+            outcomes = data['outcomes']
+            if "yes" in outcomes or "no" in outcomes:
+                bookies_yes = set(bookie for bookie, _ in outcomes.get("yes", []))
+                bookies_no = set(bookie for bookie, _ in outcomes.get("no", []))
+                odds_yes = [odds for _, odds in outcomes.get("yes", []) if odds is not None]
+                odds_no = [odds for _, odds in outcomes.get("no", []) if odds is not None]
+                imp_probs_yes = [self.calculate_implied_probability(o) for o in odds_yes] if odds_yes else []
+                imp_probs_no = [self.calculate_implied_probability(o) for o in odds_no] if odds_no else []
+                avg_imp_prob_yes = sum(imp_probs_yes) / len(imp_probs_yes) if imp_probs_yes else 0
+                avg_imp_prob_no = sum(imp_probs_no) / len(imp_probs_no) if imp_probs_no else 0
+
                 both_sides_sufficient = ("yes" in outcomes and "no" in outcomes and
-                                         len(bookies_yes) >= self.min_bookies and len(bookies_no) >= self.min_bookies)
+                                        len(bookies_yes) >= self.min_bookies and len(bookies_no) >= self.min_bookies)
 
                 if both_sides_sufficient:
                     market_overround = avg_imp_prob_yes + avg_imp_prob_no
@@ -271,12 +375,13 @@ class ExpectedValueAnalyzer:
                     fair_prob_yes = avg_imp_prob_yes / market_overround
                     fair_prob_no = avg_imp_prob_no / market_overround
 
-                    # Analyze "yes"
                     for bookie, odds in outcomes.get("yes", []):
                         if odds is None:
                             continue
                         ev = self.calculate_expected_value(odds, fair_prob_yes)
                         if ev > self.ev_target:
+                            if odds > 2000:  # Cap at +2000
+                                continue
                             bookie_imp_prob = self.calculate_implied_probability(odds)
                             self.results.append((
                                 data['game_ID'], bookie, data['Prop_Type'], "yes",
@@ -286,12 +391,13 @@ class ExpectedValueAnalyzer:
                                 data['last_updated_timestamp']
                             ))
 
-                    # Analyze "no"
                     for bookie, odds in outcomes.get("no", []):
                         if odds is None:
                             continue
                         ev = self.calculate_expected_value(odds, fair_prob_no)
                         if ev > self.ev_target:
+                            if odds > 2000:  # Cap at +2000
+                                continue
                             bookie_imp_prob = self.calculate_implied_probability(odds)
                             self.results.append((
                                 data['game_ID'], bookie, data['Prop_Type'], "no",
@@ -301,12 +407,11 @@ class ExpectedValueAnalyzer:
                                 data['last_updated_timestamp']
                             ))
                 else:
-                    # Analyze "yes" if sufficient bookies
                     if len(bookies_yes) >= self.min_bookies:
                         sorted_odds_yes = sorted(odds_yes)
                         mid = len(sorted_odds_yes) // 2
                         median_odds_yes = (sorted_odds_yes[mid - 1] + sorted_odds_yes[mid]) / 2 if len(sorted_odds_yes) % 2 == 0 else sorted_odds_yes[mid]
-                        assumed_overround_yes = self.get_assumed_overround(median_odds_yes)
+                        assumed_overround_yes = self.get_median_assumed_overround(median_odds_yes)
                         if assumed_overround_yes is None:
                             logger.warning(f"Invalid median odds {median_odds_yes} for {key}")
                             continue
@@ -316,6 +421,8 @@ class ExpectedValueAnalyzer:
                                 continue
                             ev = self.calculate_expected_value(odds, fair_prob_yes)
                             if ev > self.ev_target:
+                                if odds > 2000:  # Cap at +2000
+                                    continue
                                 bookie_imp_prob = self.calculate_implied_probability(odds)
                                 self.results.append((
                                     data['game_ID'], bookie, data['Prop_Type'], "yes",
@@ -325,12 +432,11 @@ class ExpectedValueAnalyzer:
                                     data['last_updated_timestamp']
                                 ))
 
-                    # Analyze "no" if sufficient bookies
                     if len(bookies_no) >= self.min_bookies:
                         sorted_odds_no = sorted(odds_no)
                         mid = len(sorted_odds_no) // 2
                         median_odds_no = (sorted_odds_no[mid - 1] + sorted_odds_no[mid]) / 2 if len(sorted_odds_no) % 2 == 0 else sorted_odds_no[mid]
-                        assumed_overround_no = self.get_assumed_overround(median_odds_no)
+                        assumed_overround_no = self.get_median_assumed_overround(median_odds_no)
                         if assumed_overround_no is None:
                             logger.warning(f"Invalid median odds {median_odds_no} for {key}")
                             continue
@@ -340,6 +446,8 @@ class ExpectedValueAnalyzer:
                                 continue
                             ev = self.calculate_expected_value(odds, fair_prob_no)
                             if ev > self.ev_target:
+                                if odds > 2000:  # Cap at +2000
+                                    continue
                                 bookie_imp_prob = self.calculate_implied_probability(odds)
                                 self.results.append((
                                     data['game_ID'], bookie, data['Prop_Type'], "no",
@@ -359,9 +467,8 @@ class ExpectedValueAnalyzer:
                 avg_imp_prob_over = sum(imp_probs_over) / len(imp_probs_over) if imp_probs_over else 0
                 avg_imp_prob_under = sum(imp_probs_under) / len(imp_probs_under) if imp_probs_under else 0
 
-                # Check if both sides have sufficient bookies
                 both_sides_sufficient = ("over" in outcomes and "under" in outcomes and
-                                         len(bookies_over) >= self.min_bookies and len(bookies_under) >= self.min_bookies)
+                                        len(bookies_over) >= self.min_bookies and len(bookies_under) >= self.min_bookies)
 
                 if both_sides_sufficient:
                     market_overround = avg_imp_prob_over + avg_imp_prob_under
@@ -371,12 +478,13 @@ class ExpectedValueAnalyzer:
                     fair_prob_over = avg_imp_prob_over / market_overround
                     fair_prob_under = avg_imp_prob_under / market_overround
 
-                    # Analyze "over"
                     for bookie, odds in outcomes.get("over", []):
                         if odds is None:
                             continue
                         ev = self.calculate_expected_value(odds, fair_prob_over)
                         if ev > self.ev_target:
+                            if odds > 2000:  # Cap at +2000
+                                continue
                             bookie_imp_prob = self.calculate_implied_probability(odds)
                             self.results.append((
                                 data['game_ID'], bookie, data['Prop_Type'], "over",
@@ -386,12 +494,13 @@ class ExpectedValueAnalyzer:
                                 data['last_updated_timestamp']
                             ))
 
-                    # Analyze "under"
                     for bookie, odds in outcomes.get("under", []):
                         if odds is None:
                             continue
                         ev = self.calculate_expected_value(odds, fair_prob_under)
                         if ev > self.ev_target:
+                            if odds > 2000:  # Cap at +2000
+                                continue
                             bookie_imp_prob = self.calculate_implied_probability(odds)
                             self.results.append((
                                 data['game_ID'], bookie, data['Prop_Type'], "under",
@@ -401,12 +510,11 @@ class ExpectedValueAnalyzer:
                                 data['last_updated_timestamp']
                             ))
                 else:
-                    # Analyze "over" if sufficient bookies
                     if len(bookies_over) >= self.min_bookies:
                         sorted_odds_over = sorted(odds_over)
                         mid = len(sorted_odds_over) // 2
                         median_odds_over = (sorted_odds_over[mid - 1] + sorted_odds_over[mid]) / 2 if len(sorted_odds_over) % 2 == 0 else sorted_odds_over[mid]
-                        assumed_overround_over = self.get_assumed_overround(median_odds_over)
+                        assumed_overround_over = self.get_median_assumed_overround(median_odds_over)
                         if assumed_overround_over is None:
                             logger.warning(f"Invalid median odds {median_odds_over} for {key}")
                             continue
@@ -416,6 +524,8 @@ class ExpectedValueAnalyzer:
                                 continue
                             ev = self.calculate_expected_value(odds, fair_prob_over)
                             if ev > self.ev_target:
+                                if odds > 2000:  # Cap at +2000
+                                    continue
                                 bookie_imp_prob = self.calculate_implied_probability(odds)
                                 self.results.append((
                                     data['game_ID'], bookie, data['Prop_Type'], "over",
@@ -425,12 +535,11 @@ class ExpectedValueAnalyzer:
                                     data['last_updated_timestamp']
                                 ))
 
-                    # Analyze "under" if sufficient bookies
                     if len(bookies_under) >= self.min_bookies:
                         sorted_odds_under = sorted(odds_under)
                         mid = len(sorted_odds_under) // 2
                         median_odds_under = (sorted_odds_under[mid - 1] + sorted_odds_under[mid]) / 2 if len(sorted_odds_under) % 2 == 0 else sorted_odds_under[mid]
-                        assumed_overround_under = self.get_assumed_overround(median_odds_under)
+                        assumed_overround_under = self.get_median_assumed_overround(median_odds_under)
                         if assumed_overround_under is None:
                             logger.warning(f"Invalid median odds {median_odds_under} for {key}")
                             continue
@@ -440,6 +549,8 @@ class ExpectedValueAnalyzer:
                                 continue
                             ev = self.calculate_expected_value(odds, fair_prob_under)
                             if ev > self.ev_target:
+                                if odds > 2000:  # Cap at +2000
+                                    continue
                                 bookie_imp_prob = self.calculate_implied_probability(odds)
                                 self.results.append((
                                     data['game_ID'], bookie, data['Prop_Type'], "under",

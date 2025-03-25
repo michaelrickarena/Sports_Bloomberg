@@ -2,23 +2,17 @@
 
 import Head from "next/head";
 import "bootstrap/dist/css/bootstrap.min.css";
-import { useState, useEffect } from "react";
+import { useAuth } from "./contexts/AuthContext";
+
+// Dummy auth check (replace with your actual auth logic) - Original kept
+const useAuthDummy = () => {
+  const isLoggedIn = false;
+  return { isLoggedIn };
+};
 
 export default function HomePage() {
-  // Disclaimer logic (if needed)
-  const [showDisclaimer, setShowDisclaimer] = useState(false);
-
-  useEffect(() => {
-    const disclaimerAccepted = localStorage.getItem("disclaimerAccepted");
-    if (!disclaimerAccepted) {
-      setShowDisclaimer(true);
-    }
-  }, []);
-
-  const handleAcceptDisclaimer = () => {
-    localStorage.setItem("disclaimerAccepted", "true");
-    setShowDisclaimer(false);
-  };
+  const { isLoggedIn } = useAuth();
+  console.log("HomePage isLoggedIn:", isLoggedIn);
 
   return (
     <>
@@ -26,46 +20,23 @@ export default function HomePage() {
         <title>TheSmartLines | Sports Analytics Subscription</title>
         <meta
           name="description"
-          content="Access arbitrage tracking, +EV bets, and detailed line graphs—all for $10/month."
+          content="Unlock real-time arbitrage alerts, identify profitable +EV bets, and analyze betting trends with interactive graphs. All for just $10/month. Start your free trial today!"
         />
-        {/* Bootstrap Icons */}
+        <meta
+          property="og:title"
+          content="TheSmartLines | Sports Analytics Subscription"
+        />
+        <meta
+          property="og:description"
+          content="Unlock real-time arbitrage alerts, identify profitable +EV bets, and analyze betting trends with interactive graphs. All for just $10/month. Start your free trial today!"
+        />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://www.thesmartlines.com/" />
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css"
         />
       </Head>
-
-      {/* Disclaimer Modal (if applicable) */}
-      {showDisclaimer && (
-        <div
-          className="modal show d-block"
-          tabIndex="-1"
-          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
-        >
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Disclaimer</h5>
-              </div>
-              <div className="modal-body">
-                <p>
-                  This website is intended for informational purposes only.
-                  Please ensure your betting activities comply with local laws.
-                  Gamble responsibly.
-                </p>
-              </div>
-              <div className="modal-footer">
-                <button
-                  onClick={handleAcceptDisclaimer}
-                  className="btn btn-primary"
-                >
-                  I Understand
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main Content */}
       <header
@@ -82,15 +53,16 @@ export default function HomePage() {
           <h1 className="masthead-heading text-uppercase">
             Welcome to TheSmartLines
           </h1>
-          <p className="masthead-subheading fw-light mb-0">
+          <h5 className="masthead-subheading fw-light mb-0">
             Your Ultimate Sports Analytics Hub
-          </p>
+          </h5>
           <a
             className="btn btn-primary btn-xl text-uppercase mt-4"
-            href="/register"
+            href={isLoggedIn ? "/checkout" : "/register"} // Dynamic href
             role="button"
           >
-            Start Free Trial
+            {isLoggedIn ? "Renew Your Subscription" : "Start Free Trial"}{" "}
+            {/* Dynamic text */}
           </a>
         </div>
       </header>
@@ -99,7 +71,6 @@ export default function HomePage() {
       <section id="features" style={{ padding: "60px 0" }}>
         <div className="container">
           <div className="row text-center">
-            {/* Arbitrage Tracking / Alerts */}
             <div className="col-md-4 mb-5">
               <div className="feature-box">
                 <i
@@ -113,7 +84,6 @@ export default function HomePage() {
                 </p>
               </div>
             </div>
-            {/* +EV Bets */}
             <div className="col-md-4 mb-5">
               <div className="feature-box">
                 <i
@@ -126,7 +96,6 @@ export default function HomePage() {
                 </p>
               </div>
             </div>
-            {/* Graph Lines */}
             <div className="col-md-4 mb-5">
               <div className="feature-box">
                 <i
@@ -162,8 +131,14 @@ export default function HomePage() {
                   <h3 className="display-4">
                     $10<span className="small">/month</span>
                   </h3>
-                  <a href="/register" className="btn btn-dark btn-lg mt-3">
-                    Start Free Trial
+                  <a
+                    href={isLoggedIn ? "/checkout" : "/register"} // Dynamic href
+                    className="btn btn-dark btn-lg mt-3"
+                  >
+                    {isLoggedIn
+                      ? "Renew Your Subscription"
+                      : "Start Free Trial"}{" "}
+                    {/* Dynamic text */}
                   </a>
                 </div>
               </div>
@@ -183,10 +158,9 @@ export default function HomePage() {
         }}
       >
         <div className="container">
-          <p className="mb-0">
-            &copy; {new Date().getFullYear()} TheSmartLines. All rights
-            reserved.
-          </p>
+          <h5 className="masthead-subheading fw-light mb-0">
+            © {new Date().getFullYear()} TheSmartLines. All rights reserved.
+          </h5>
         </div>
       </footer>
     </>

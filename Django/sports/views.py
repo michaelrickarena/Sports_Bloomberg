@@ -57,6 +57,8 @@ load_dotenv()
 
 STRIPE_DOMAIN = os.getenv('STRIPE_DOMAIN')
 FRONT_END_DOMAIN = os.getenv('FRONT_END_DOMAIN')
+STRIPE_DOMAIN = os.getenv('STRIPE_DOMAIN')
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 
 logger = logging.getLogger("logsport")
 
@@ -703,7 +705,7 @@ def send_verification_email(request, user, uid, token):
     send_mail(
         subject, 
         message, 
-        "SmartLines <smartlinesinbox@gmail.com>",  # More branded sender
+        f"SmartLines <{EMAIL_HOST_USER}>",  # More branded sender
         [user.email]
     )
 
@@ -851,8 +853,8 @@ def login_and_get_jwt(request):
         'subscription_active': subscription_status,  # Pass the exact subscription status
     })
 
-    response.set_cookie("refresh_token", str(refresh), httponly=True, secure=False, samesite="None", max_age=86400)
-    response.set_cookie("access_token", str(refresh.access_token), httponly=True, secure=False, samesite="None", max_age=86400)
+    response.set_cookie("refresh_token", str(refresh), httponly=True, secure=True, samesite="None", max_age=86400)
+    response.set_cookie("access_token", str(refresh.access_token), httponly=True, secure=True, samesite="None", max_age=86400)
 
     return response
 
@@ -918,7 +920,7 @@ def cancel_subscription(request):
     
     except Exception as e:
         logger.error(f"Error cancelling subscription: {str(e)}")
-        return JsonResponse({"error": "An unexpected error occurred."}, status=500)
+        return JsonResponse({"error": "You currently do not have a subscription."}, status=500)
 
 @api_view(['GET'])
 @authentication_classes([JWTAuthentication])

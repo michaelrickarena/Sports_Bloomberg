@@ -6,6 +6,63 @@ import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import NavBar from "../components/NavBar";
 import "../styles/globals.css";
+import { AuthProvider, useAuth } from "./contexts/AuthContext"; // Updated path
+
+// New child component to use useAuth within AuthProvider
+function LayoutContent({ children }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const {
+    isLoggedIn: contextIsLoggedIn,
+    subscriptionStatus: contextSubscriptionStatus,
+    isLoading: contextIsLoading,
+  } = useAuth();
+
+  useEffect(() => {
+    if (!contextIsLoading) {
+      const publicPaths = [
+        "/login",
+        "/verify-email",
+        "/register",
+        "/password-reset",
+        "/password-reset-confirm",
+        "/termsandconditions",
+      ];
+
+      const isPublicPath =
+        pathname === "/" ||
+        publicPaths.some((path) => pathname.startsWith(path));
+
+      console.log("isLoggedIn in redirection:", contextIsLoggedIn);
+
+      if (isPublicPath) {
+        // Allow access to public paths
+      } else if (!contextIsLoggedIn) {
+        router.replace("/login");
+      } else if (
+        contextSubscriptionStatus === "inactive" &&
+        pathname !== "/checkout"
+      ) {
+        router.replace("/checkout");
+      }
+    }
+  }, [
+    contextIsLoading,
+    contextIsLoggedIn,
+    contextSubscriptionStatus,
+    pathname,
+    router,
+  ]);
+
+  return contextIsLoading ? (
+    <div>Loading...</div>
+  ) : (
+    <>
+      <NavBar />
+      {children}
+    </>
+  );
+}
 
 export default function Layout({ children }) {
   const router = useRouter();
@@ -13,7 +70,7 @@ export default function Layout({ children }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [accessToken, setAccessToken] = useState(Cookies.get("access_token")); // New state
+  const [accessToken, setAccessToken] = useState(Cookies.get("access_token"));
 
   const checkAndRefreshToken = async () => {
     const currentAccessToken = Cookies.get("access_token");
@@ -21,10 +78,14 @@ export default function Layout({ children }) {
     let isUserLoggedIn = !!currentAccessToken && !!refreshToken;
     let currentSubscriptionStatus = localStorage.getItem("subscription_status");
 
+    console.log("Checking tokens:", { currentAccessToken, refreshToken });
+
     if (currentAccessToken) {
       try {
         const decodedToken = jwtDecode(currentAccessToken);
         const currentTime = Date.now() / 1000;
+
+        console.log("Decoded token:", decodedToken);
 
         if (decodedToken.exp < currentTime) {
           if (refreshToken) {
@@ -43,7 +104,7 @@ export default function Layout({ children }) {
               const data = await response.json();
               const newAccessToken = data.accessToken;
               Cookies.set("access_token", newAccessToken, { path: "/" });
-              setAccessToken(newAccessToken); // Update state to trigger refresh timer
+              setAccessToken(newAccessToken);
               const newDecodedToken = jwtDecode(newAccessToken);
               currentSubscriptionStatus =
                 newDecodedToken.subscription_status ||
@@ -71,29 +132,28 @@ export default function Layout({ children }) {
       isUserLoggedIn = false;
     }
 
+    console.log("Setting isLoggedIn:", isUserLoggedIn);
     setIsLoggedIn(isUserLoggedIn);
     setSubscriptionStatus(currentSubscriptionStatus);
     setIsLoading(false);
   };
 
-  // Check token on navigation
   useEffect(() => {
     checkAndRefreshToken();
   }, [pathname, router]);
 
-  // Proactive token refresh before expiration
   useEffect(() => {
     if (accessToken) {
       try {
         const decodedToken = jwtDecode(accessToken);
         const currentTime = Date.now() / 1000;
         if (decodedToken.exp > currentTime) {
-          const expiresIn = (decodedToken.exp - currentTime) * 1000; // Time until expiration in ms
-          const refreshTime = expiresIn > 60000 ? expiresIn - 60000 : 0; // Refresh 60s before, or immediately if < 60s
+          const expiresIn = (decodedToken.exp - currentTime) * 1000;
+          const refreshTime = expiresIn > 60000 ? expiresIn - 60000 : 0;
           const timer = setTimeout(() => {
             checkAndRefreshToken();
           }, refreshTime);
-          return () => clearTimeout(timer); // Cleanup to prevent multiple timers
+          return () => clearTimeout(timer);
         }
       } catch (error) {
         console.error("Invalid token:", error);
@@ -101,46 +161,16 @@ export default function Layout({ children }) {
     }
   }, [accessToken]);
 
-  // Redirection logic
   useEffect(() => {
-    if (!isLoading) {
-      const publicPaths = [
-        "/login",
-        "/verify-email",
-        "/register",
-        "/password-reset",
-        "/password-reset-confirm",
-        "/termsandconditions",
-      ];
-
-      const isPublicPath =
-        pathname === "/" ||
-        publicPaths.some((path) => pathname.startsWith(path));
-
-      if (isPublicPath) {
-        // Allow access to public paths
-      } else if (!isLoggedIn) {
-        router.replace("/login");
-      } else if (
-        subscriptionStatus === "inactive" &&
-        pathname !== "/checkout"
-      ) {
-        router.replace("/checkout");
-      }
-    }
-  }, [isLoading, isLoggedIn, subscriptionStatus, pathname, router]);
+    console.log("isLoggedIn updated:", isLoggedIn);
+  }, [isLoggedIn]);
 
   return (
     <html lang="en">
       <body>
-        {isLoading ? (
-          <div>Loading...</div>
-        ) : (
-          <>
-            <NavBar />
-            {children}
-          </>
-        )}
+        <AuthProvider>
+          <LayoutContent>{children}</LayoutContent>
+        </AuthProvider>
       </body>
     </html>
   );

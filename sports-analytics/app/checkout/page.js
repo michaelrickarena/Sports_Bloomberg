@@ -3,7 +3,7 @@ import CheckoutForm from "../../components/CheckoutForm";
 const CheckoutPage = () => {
   return (
     <div>
-      <h1>Subscribe to Premium</h1>
+      <h2>Subscribe to Premium</h2>
       <CheckoutForm />
     </div>
   );

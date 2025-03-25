@@ -20,8 +20,8 @@ export default function ArbitrageOpportunitiesPage() {
         </p>
         <p>
           To ensure you don’t miss important alerts, add{" "}
-          <strong>smartlinesinbox@gmail.com</strong> to your safe sender list to
-          ensure emails dont end up in junk.
+          <strong>notifications@thesmartlines.com</strong> to your safe sender
+          list to ensure emails dont end up in junk.
         </p>
         <div className="arbitrage-container">
           <UserBetCreate />
