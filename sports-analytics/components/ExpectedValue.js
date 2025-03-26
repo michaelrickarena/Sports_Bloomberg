@@ -158,7 +158,7 @@ export default function ExpectedValue() {
               onClick={() => handleMoneylineSort("line")}
               style={{ cursor: "pointer" }}
             >
-              Betting Line{" "}
+              Line{" "}
               {moneylineSortConfig.key === "line"
                 ? moneylineSortConfig.direction === "asc"
                   ? "▲"
@@ -230,13 +230,13 @@ export default function ExpectedValue() {
             <th>Player Name</th>
             <th>Bookie</th>
             <th>Prop Type</th>
-            <th>Bet Type</th>
+            <th>Type</th>
 
             <th
               onClick={() => handlePropsSort("Betting_Line")}
               style={{ cursor: "pointer" }}
             >
-              Betting Line{" "}
+              Line{" "}
               {propsSortConfig.key === "Betting_Line"
                 ? propsSortConfig.direction === "asc"
                   ? "▲"

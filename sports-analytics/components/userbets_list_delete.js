@@ -93,7 +93,7 @@ const MyBets = () => {
     if (bets.length === 0) {
       return (
         <p className="no-bets">
-          No bets currently being monitored - Record a bet and refresh.
+          Nothing currently being monitored - Record your wager and refresh.
         </p>
       );
     }

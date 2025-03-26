@@ -167,12 +167,12 @@ const UserBetCreate = () => {
           )}
 
           <div>
-            <label>Bet Type</label>
+            <label>Market Type</label>
             <input type="text" value="Moneyline" readOnly />
           </div>
 
           <div>
-            <label>Bet Amount</label>
+            <label>Amount Wagered</label>
             <input
               type="number"
               value={betAmount}
@@ -181,7 +181,7 @@ const UserBetCreate = () => {
           </div>
 
           <div>
-            <label>Bookie</label>
+            <label>Bookie Used</label>
             <input
               type="text"
               value={bookie}
@@ -192,7 +192,7 @@ const UserBetCreate = () => {
           <div>
             <label>Line</label>
             <p className="Arbitrage-Threshold-Explanation">
-              The line you made your bet at (American odds only)
+              The line you made your wager at (American odds only)
             </p>
             <input
               type="number"
@@ -202,7 +202,7 @@ const UserBetCreate = () => {
           </div>
 
           <div>
-            <label>Alert Threshold</label>
+            <label>Return Threshold</label>
             <p className="Arbitrage-Threshold-Explanation">
               Enter the percentage as a whole number (e.g., 5 for a 5% return
               alert).
@@ -214,7 +214,7 @@ const UserBetCreate = () => {
             />
           </div>
 
-          <button type="submit">Submit Bet</button>
+          <button type="submit">Start Scanning</button>
         </form>
 
         {success && <p style={{ color: "green" }}>{success}</p>}

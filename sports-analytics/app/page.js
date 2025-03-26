@@ -20,7 +20,7 @@ export default function HomePage() {
         <title>TheSmartLines | Sports Analytics Subscription</title>
         <meta
           name="description"
-          content="Unlock real-time arbitrage alerts, identify profitable +EV bets, and analyze betting trends with interactive graphs. All for just $10/month. Start your free trial today!"
+          content="Unlock real-time arbitrage alerts, identify profitable +EV lines, and analyze betting trends with interactive graphs. All for just $10/month. Start your free trial today!"
         />
         <meta
           property="og:title"
@@ -28,7 +28,7 @@ export default function HomePage() {
         />
         <meta
           property="og:description"
-          content="Unlock real-time arbitrage alerts, identify profitable +EV bets, and analyze betting trends with interactive graphs. All for just $10/month. Start your free trial today!"
+          content="Unlock real-time arbitrage alerts, identify profitable +EV lines, and analyze betting trends with interactive graphs. All for just $10/month. Start your free trial today!"
         />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://www.thesmartlines.com/" />
@@ -80,7 +80,7 @@ export default function HomePage() {
                 <h3 className="my-3">Arbitrage Alerts</h3>
                 <p className="text-muted">
                   Get real-time notifications for arbitrage opportunities to
-                  secure risk-free profits.
+                  secure risk-free opportunities.
                 </p>
               </div>
             </div>
@@ -90,9 +90,9 @@ export default function HomePage() {
                   className="bi bi-graph-up"
                   style={{ fontSize: "3rem", color: "#6c757d" }}
                 ></i>
-                <h3 className="my-3">+EV Bets</h3>
+                <h3 className="my-3">+EV Lines</h3>
                 <p className="text-muted">
-                  Identify positive expected value bets to boost your edge.
+                  Identify positive expected value lines to boost your edge.
                 </p>
               </div>
             </div>
@@ -125,8 +125,8 @@ export default function HomePage() {
                 <div className="card-body">
                   <h2 className="card-title">Subscription Plan</h2>
                   <p className="card-text">
-                    Unlock full access to arbitrage tracking, +EV bets, and
-                    detailed line graphs.
+                    Unlock full access to arbitrage tracking, +EV lines, and
+                    detailed graphs.
                   </p>
                   <h3 className="display-4">
                     $10<span className="small">/month</span>

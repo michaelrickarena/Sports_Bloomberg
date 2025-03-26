@@ -57,7 +57,6 @@ load_dotenv()
 
 STRIPE_DOMAIN = os.getenv('STRIPE_DOMAIN')
 FRONT_END_DOMAIN = os.getenv('FRONT_END_DOMAIN')
-STRIPE_DOMAIN = os.getenv('STRIPE_DOMAIN')
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 
 logger = logging.getLogger("logsport")

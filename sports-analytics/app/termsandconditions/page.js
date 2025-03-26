@@ -36,19 +36,22 @@ const TermsAndConditions = () => {
       <h2>2. Description of Services</h2>
       <p>
         The Site provides a sports analytics platform offering arbitrage
-        tracking, real-time alerts, positive expected value (+EV) betting
-        opportunities, and interactive line graphs. All content is provided
-        solely for informational and analytical purposes on a subscription
-        basis.
+        tracking, real-time alerts, positive expected value (+EV) opportunities,
+        and interactive line graphs. All content is provided solely for
+        informational and analytical purposes on a subscription basis.
       </p>
 
       <h2>3. Informational Purposes Only</h2>
       <p>
+        {" "}
         All information, data, and analyses provided on this Site are intended
-        for informational purposes only. Nothing on the Site constitutes
-        financial, legal, or betting advice. You are solely responsible for
-        verifying the accuracy, completeness, and applicability of any
-        information before relying on it.
+        for **informational purposes only**. Nothing on the Site constitutes
+        financial, legal, or betting advice. We do not encourage or condone the
+        use of this information for gambling or betting activities. If you
+        choose to engage in such activities, you are solely responsible for
+        ensuring compliance with the laws and regulations of your jurisdiction.
+        The Site and its operators assume no liability for any decisions made
+        based on the provided information.{" "}
       </p>
 
       <h2>4. No Betting or Gambling Services</h2>
