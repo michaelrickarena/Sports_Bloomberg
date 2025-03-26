@@ -40,7 +40,6 @@ def homepage(request):
 
 urlpatterns = [
     path('', homepage, name='home'),  # Root path for the homepage
-    path('admin/', admin.site.urls),
     path('accounts/', include('django.contrib.auth.urls')),
     path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('api/create-checkout-session/', create_checkout_session, name='create-checkout-session'),

@@ -20,7 +20,6 @@ load_dotenv()
 
 actual_domain='thesmartlines.com'
 
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 STRIPE_TEST_PUBLIC_KEY = os.getenv('STRIPE_TEST_PUBLIC_KEY')
@@ -36,7 +35,7 @@ SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['10.0.0.29', 'localhost', '127.0.0.1', "192.168.2.46", 'www.thesmartlines.com', 'thesmartlines.com']
+ALLOWED_HOSTS = ['api.thesmartlines.com', 'localhost', '*', 'www.thesmartlines.com', 'thesmartlines.com']
 
 
 # Application definition
@@ -128,8 +127,21 @@ WSGI_APPLICATION = 'sportsanalytics.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {'default': dj_database_url.config(default=os.environ['DATABASE_URL'], engine='django_cockroachdb')}
+# Parse DATABASE_URL and add SSL root cert
+DATABASE_CONFIG = dj_database_url.config(
+    default=os.environ['DATABASE_URL'],
+    engine='django_cockroachdb',
+    conn_max_age=600
+)
 
+# Add sslrootcert to OPTIONS
+DATABASE_CONFIG['OPTIONS'] = DATABASE_CONFIG.get('OPTIONS', {})
+DATABASE_CONFIG['OPTIONS']['sslmode'] = 'verify-full'
+DATABASE_CONFIG['OPTIONS']['sslrootcert'] = os.path.join(BASE_DIR, 'certs', 'root.crt')
+
+DATABASES = {
+    'default': DATABASE_CONFIG
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
