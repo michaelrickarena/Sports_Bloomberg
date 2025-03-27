@@ -15,7 +15,6 @@ def generate_email_verification_token(user):
 # Send verification email
 def send_verification_email(request, user, uid, token):
     subject = 'Activate your account'
-    verification_link = f"http://{get_current_site(request).domain}/verify-email?uid={uid}&token={token}"
+    verification_link = f"{settings.SITE_URL}/verify-email?uid={uid}&token={token}"
     message = f"Hi {user.username},\n\nTo activate your account, click the following link:\n{verification_link}"
-
     send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])

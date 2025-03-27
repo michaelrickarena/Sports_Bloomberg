@@ -1158,6 +1158,30 @@ class DB:
 
 ### START +EV table
 
+    def clean_old_data(self, table: str) -> None:
+        """Deletes records older than 24 hours from the specified table based on last_updated_timestamp.
+
+        Args:
+            table (str): The name of the table to clean.
+        """
+        VALID_TABLES = ['moneyline', 'overunder', 'props', 'spreads']
+
+        if table not in VALID_TABLES:
+            logger.error(f"Invalid table name: {table}. Cleanup operation aborted.")
+            raise ValueError(f"Invalid table name: {table}")
+
+        try:
+            with self.conn.cursor() as cursor:
+                query = f"""
+                DELETE FROM {table} 
+                WHERE last_updated_timestamp < NOW() - INTERVAL '1 day';
+                """
+                cursor.execute(query)
+                rows_deleted = cursor.rowcount  # Get the number of deleted rows
+            self.conn.commit()
+            logger.info(f"Successfully deleted {rows_deleted} rows from {table} table")
+        except Exception as e:
+            logger.error(f"Failed to clean {table} table. Error: {e}", exc_info=True)
 
 
     ### truncate data from table

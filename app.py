@@ -84,6 +84,10 @@ def lambda_handler(event=None, context=None):
         # delete old games
         db.delete_old_games()
 
+        VALID_CLEANUP_TABLES = ['moneyline', 'spreads', 'props', 'overunder']
+        for cleanup in VALID_CLEANUP_TABLES:
+            db.clean_old_data(cleanup)
+
         # this triggers delete on cascade to only have most recent events
         try:
             db.delete_games_with_true_status()  # Delete any game_IDs with True status as the game is completed
