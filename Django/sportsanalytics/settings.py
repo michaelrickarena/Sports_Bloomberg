@@ -38,7 +38,7 @@ SECRET_KEY = os.environ['DJANGO_SECRET_KEY']
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['api.thesmartlines.com', 'localhost', '*', 'www.thesmartlines.com', 'thesmartlines.com'] if ENV == 'prod' else ['10.0.0.29', 'localhost', '127.0.0.1', "192.168.2.46", 'www.thesmartlines.com', 'thesmartlines.com']
+ALLOWED_HOSTS = ['api.thesmartlines.com'] if ENV == 'prod' else ['10.0.0.29', 'localhost', '127.0.0.1', "192.168.2.46", 'www.thesmartlines.com', 'thesmartlines.com']
 
 
 # Application definition
