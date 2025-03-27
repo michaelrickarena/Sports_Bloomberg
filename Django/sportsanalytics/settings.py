@@ -66,7 +66,7 @@ REST_FRAMEWORK = {
 }
 
 # Allow your Next.js origin
-CORS_ALLOWED_ORIGINS = ['https://thesmartlines.com'] if ENV == 'prod' else ["https://localhost:3000", "http://localhost:3000"]
+CORS_ALLOWED_ORIGINS = ['https://thesmartlines.com', 'http://localhost:3000'] if ENV == 'prod' else ["https://localhost:3000", "http://localhost:3000"]
 
 # Allow specific methods and headers
 CORS_ALLOW_METHODS = [
