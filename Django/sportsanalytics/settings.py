@@ -18,6 +18,9 @@ from datetime import timedelta
 
 load_dotenv()
 
+# Environment toggle: 'prod' for Render, 'local' for debugging
+ENV = os.getenv('ENV', 'local')  # Defaults to 'local' if not set
+
 actual_domain='thesmartlines.com'
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -33,9 +36,9 @@ STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
 SECRET_KEY = os.environ['DJANGO_SECRET_KEY'] 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['api.thesmartlines.com', 'localhost', '*', 'www.thesmartlines.com', 'thesmartlines.com']
+ALLOWED_HOSTS = ['api.thesmartlines.com', 'localhost', '*', 'www.thesmartlines.com', 'thesmartlines.com'] if ENV == 'prod' else ['10.0.0.29', 'localhost', '127.0.0.1', "192.168.2.46", 'www.thesmartlines.com', 'thesmartlines.com']
 
 
 # Application definition
@@ -53,6 +56,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'django_extensions',
     "django_celery_beat",
+    'whitenoise.runserver_nostatic'
 ]
 
 REST_FRAMEWORK = {
@@ -62,10 +66,7 @@ REST_FRAMEWORK = {
 }
 
 # Allow your Next.js origin
-CORS_ALLOWED_ORIGINS = [
-    "https://localhost:3000",  # Your Next.js frontend
-    "http://localhost:3000",   # If you switch to HTTP
-]
+CORS_ALLOWED_ORIGINS = ['https://thesmartlines.com'] if ENV == 'prod' else ["https://localhost:3000", "http://localhost:3000"]
 
 # Allow specific methods and headers
 CORS_ALLOW_METHODS = [
@@ -86,6 +87,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     
     # 'sports.middleware.SubscriptionCheckMiddleware',
 ]
@@ -123,6 +125,7 @@ SIMPLE_JWT = {
 
 WSGI_APPLICATION = 'sportsanalytics.wsgi.application'
 
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
@@ -259,7 +262,14 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 
-DOMAIN = "127.0.0.1:8000/"  # Change this to your actual domain
+# Static files
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+
+
+DOMAIN = "api.thesmartlines.com" if ENV == 'prod' else "127.0.0.1:8000/"  # Change this to your actual domain
 SITE_URL = f"https://{DOMAIN}"  # Force HTTPS
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
