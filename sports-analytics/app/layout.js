@@ -33,8 +33,6 @@ function LayoutContent({ children }) {
         pathname === "/" ||
         publicPaths.some((path) => pathname.startsWith(path));
 
-      console.log("isLoggedIn in redirection:", contextIsLoggedIn);
-
       if (isPublicPath) {
         // Allow access to public paths
       } else if (!contextIsLoggedIn) {
@@ -78,14 +76,10 @@ export default function Layout({ children }) {
     let isUserLoggedIn = !!currentAccessToken && !!refreshToken;
     let currentSubscriptionStatus = localStorage.getItem("subscription_status");
 
-    console.log("Checking tokens:", { currentAccessToken, refreshToken });
-
     if (currentAccessToken) {
       try {
         const decodedToken = jwtDecode(currentAccessToken);
         const currentTime = Date.now() / 1000;
-
-        console.log("Decoded token:", decodedToken);
 
         if (decodedToken.exp < currentTime) {
           if (refreshToken) {
@@ -132,7 +126,6 @@ export default function Layout({ children }) {
       isUserLoggedIn = false;
     }
 
-    console.log("Setting isLoggedIn:", isUserLoggedIn);
     setIsLoggedIn(isUserLoggedIn);
     setSubscriptionStatus(currentSubscriptionStatus);
     setIsLoading(false);

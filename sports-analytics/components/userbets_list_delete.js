@@ -30,7 +30,7 @@ const MyBets = () => {
         }
 
         const data = await response.json();
-        console.log("Fetched bets from API:", data); // Debugging
+
         setBets(data);
         setLoading(false);
       } catch (err) {
@@ -43,10 +43,6 @@ const MyBets = () => {
   }, []);
 
   const handleDelete = async (betId) => {
-    console.log("Current bets in state:", bets);
-    console.log("Trying to delete bet with ID:", betId);
-    console.log("Attempting to delete bet with ID:", betId); // Debugging
-
     try {
       const token = document.cookie.replace(
         /(?:(?:^|.*;\s*)access_token\s*=\s*([^;]*).*$)|^.*$/,
@@ -54,7 +50,6 @@ const MyBets = () => {
       );
 
       const apiUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/user_bets/delete/${betId}/`;
-      console.log("DELETE request URL:", apiUrl); // Debugging
 
       const response = await fetch(apiUrl, {
         method: "DELETE",
@@ -74,7 +69,6 @@ const MyBets = () => {
 
       // Filter bets using string comparison
       setBets(bets.filter((bet) => bet.id !== betId));
-      console.log("Bet successfully deleted:", betId); // Debugging
     } catch (err) {
       console.error("Error deleting bet:", err.message);
       setError(err.message);

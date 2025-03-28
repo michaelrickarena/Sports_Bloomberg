@@ -14,9 +14,6 @@ const Login = () => {
   const handleLogin = async (event) => {
     event.preventDefault();
 
-    console.log("[LOGIN COMPONENT] Attempting login...");
-    console.log("[LOGIN COMPONENT] Username:", username);
-
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/login/`,
@@ -30,13 +27,9 @@ const Login = () => {
         }
       );
 
-      console.log("[LOGIN COMPONENT] Server response status:", response.status);
       const data = await response.json();
-      console.log("[LOGIN COMPONENT] Response data:", data);
 
       if (response.ok) {
-        console.log("[LOGIN COMPONENT] Login successful, redirecting...");
-
         // Set access and refresh tokens as cookies - Original kept, modified to use js-cookie
         // document.cookie = `access_token=${data.access}; path=/; secure=true; samesite=None;`; // Original commented
         // document.cookie = `refresh_token=${data.refresh}; path=/; secure=true; samesite=None;`; // Original commented
@@ -58,9 +51,7 @@ const Login = () => {
             `[LOGIN COMPONENT] Subscription status saved: ${data.subscription_active}`
           );
         } else {
-          console.log(
-            "[LOGIN COMPONENT] No subscription status found in response."
-          );
+          console.log();
         }
 
         // Redirect to homepage - Original kept

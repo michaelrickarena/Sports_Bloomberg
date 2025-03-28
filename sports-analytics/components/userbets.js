@@ -55,9 +55,6 @@ const UserBetCreate = () => {
       setGameId(game.game_id); // Store game_id
       setTeamOptions([game.home_team, game.away_team]);
       setTeam("");
-
-      console.log("Game selected:", game);
-      console.log("game_id set:", game.game_id);
     }
   }, [selectedGame, games]);
 
@@ -78,8 +75,6 @@ const UserBetCreate = () => {
       line,
       alert_threshold: parseInt(alertThreshold, 10),
     };
-
-    console.log("Submitting bet with data:", data); // Debugging log
 
     const token = document.cookie.replace(
       /(?:(?:^|.*;\s*)access_token\s*=\s*([^;]*).*$)|^.*$/,
