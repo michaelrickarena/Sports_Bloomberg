@@ -278,7 +278,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 
 DOMAIN = "api.thesmartlines.com" if ENV == 'prod' else "127.0.0.1:8000/"  # Change this to your actual domain
-SITE_URL = f"https://{DOMAIN}"  # Force HTTPS
+SITE_URL = "https://thesmartlines.com" if ENV == 'prod' else "http://localhost:3000"
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
