@@ -689,7 +689,7 @@ def get_user_by_stripe_id(stripe_customer_id):
 
 def send_verification_email(request, user, uid, token):
     # Point to your front-end verification URL
-    verification_url = f"{FRONT_END_DOMAIN}verify-email?uid={uid}&token={token}"
+    verification_url = f"{FRONT_END_DOMAIN}/verify-email?uid={uid}&token={token}"
     
     subject = "Verify Your Email - SmartLines"
     message = (
