@@ -543,7 +543,7 @@ def create_checkout_session(request):
                 return JsonResponse({'error': 'Stripe customer ID not found for this user'}, status=400)
 
             # Use the recurring price ID from the Stripe dashboard
-            price_id = 'price_1QmjCGB70pdVZrmYviRQc2Mn'  # Replace with your actual recurring price ID
+            price_id = 'price_1QmicdB70pdVZrmYn8ILuDSY'  # Replace with your actual recurring price ID
 
             # Create a Stripe Checkout session
             session = stripe.checkout.Session.create(
