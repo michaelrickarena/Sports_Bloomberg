@@ -57,7 +57,7 @@ const PasswordResetRequest = () => {
   return (
     <div>
       <h3>Forgot your password?</h3>
-      <form onSubmit={handleResetRequest} className="form-container">
+      <form onSubmit={handleResetRequest} className="login-form-container">
         <input
           type="email"
           value={email}

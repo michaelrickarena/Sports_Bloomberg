@@ -68,7 +68,7 @@ const PasswordResetConfirm = () => {
   return (
     <div>
       <h3>Reset your password</h3>
-      <form onSubmit={handlePasswordReset} className="form-container">
+      <form onSubmit={handlePasswordReset} className="login-form-container">
         <input
           type="password"
           value={password}
