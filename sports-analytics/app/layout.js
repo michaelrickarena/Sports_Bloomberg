@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import Script from "next/script"; // Import Next.js Script component
 import Cookies from "js-cookie";
 import { jwtDecode } from "jwt-decode";
 import NavBar from "../components/NavBar";
@@ -160,6 +161,25 @@ export default function Layout({ children }) {
 
   return (
     <html lang="en">
+      <head>
+        {/* Google Analytics */}
+        <Script
+          strategy="afterInteractive"
+          src="https://www.googletagmanager.com/gtag/js?id=G-XRGF2C0QFK"
+        />
+        <Script
+          id="google-analytics"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-XRGF2C0QFK');
+            `,
+          }}
+        />
+      </head>
       <body>
         <AuthProvider>
           <LayoutContent>{children}</LayoutContent>
