@@ -6,9 +6,7 @@ import { Elements } from "@stripe/react-stripe-js";
 import { useRouter, useSearchParams } from "next/navigation";
 
 // Load Stripe public key
-const stripePromise = loadStripe(
-  "pk_test_51QmeHYB70pdVZrmYS3duPwmVq1zh0ziwd7Pa4BQk4Z7e3XYNwuSm9k419guRPAek1F2fp1RjXVKb4H47NDYNIXVK00iQrofFn9"
-);
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY);
 
 // Helper functions to manage cookies
 const setCookie = (name, value, days) => {
