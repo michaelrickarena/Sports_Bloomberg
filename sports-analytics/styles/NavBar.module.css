@@ -94,6 +94,8 @@
 /* Media Query for Small Screens */
 @media (max-width: 768px) {
   .nav {
+    width: 100vw; /* Ensure it spans the full viewport width */
+    box-sizing: border-box;
     padding: 1.5rem 1rem;
     display: flex;
     justify-content: space-between;

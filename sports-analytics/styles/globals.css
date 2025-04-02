@@ -333,3 +333,23 @@ div input[type="checkbox"]:checked + label {
   margin-top: 15px;
   margin-bottom: 10px;
 }
+
+.search-input {
+  padding: 8px;
+  margin-top: 16px;
+  margin-bottom: 16px;
+  width: 25%;
+  border: 1px solid #000;
+}
+
+@media (max-width: 768px) {
+  /* Adjust width for mobile */
+  .search-input {
+    width: 80%;
+  }
+}
+
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+}

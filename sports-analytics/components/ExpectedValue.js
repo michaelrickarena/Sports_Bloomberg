@@ -148,159 +148,163 @@ export default function ExpectedValue() {
   return (
     <div className="expectedvalue-sports">
       <h1 className="expectedvalue-sports-title">Current +EV Moneyline</h1>
-      <table border="1" cellPadding="5">
-        <thead>
-          <tr>
-            <th>Team</th>
-            <th>Bookie</th>
+      <div className="table-container">
+        <table border="1" cellPadding="5">
+          <thead>
+            <tr>
+              <th>Team</th>
+              <th>Bookie</th>
 
-            <th
-              onClick={() => handleMoneylineSort("line")}
-              style={{ cursor: "pointer" }}
-            >
-              Line{" "}
-              {moneylineSortConfig.key === "line"
-                ? moneylineSortConfig.direction === "asc"
-                  ? "▲"
-                  : "▼"
-                : ""}
-            </th>
-            <th
-              onClick={() => handleMoneylineSort("expected_value")}
-              style={{ cursor: "pointer" }}
-            >
-              Expected Value{" "}
-              {moneylineSortConfig.key === "expected_value"
-                ? moneylineSortConfig.direction === "asc"
-                  ? "▲"
-                  : "▼"
-                : ""}
-            </th>
-            <th
-              onClick={() => handleMoneylineSort("fair_probability")}
-              style={{ cursor: "pointer" }}
-            >
-              Fair Probability{" "}
-              {moneylineSortConfig.key === "fair_probability"
-                ? moneylineSortConfig.direction === "asc"
-                  ? "▲"
-                  : "▼"
-                : ""}
-            </th>
-            <th
-              onClick={() => handleMoneylineSort("implied_probability")}
-              style={{ cursor: "pointer" }}
-            >
-              Implied Probability{" "}
-              {moneylineSortConfig.key === "implied_probability"
-                ? moneylineSortConfig.direction === "asc"
-                  ? "▲"
-                  : "▼"
-                : ""}
-            </th>
-            <th>Market Overround</th>
-            <th>Sport</th>
-            <th>Event Timestamp</th>
-            <th>Last Update</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sortedMoneylineData.map((row) => (
-            <tr key={row.id}>
-              <td>{row.team}</td>
-              <td>{row.bookie}</td>
-
-              <td>{row.line}</td>
-              <td>{row.expected_value}</td>
-              <td>{(row.fair_probability * 100).toFixed(2)}%</td>
-              <td>{(row.implied_probability * 100).toFixed(2)}%</td>
-              <td>{row.market_overround}</td>
-              <td>{formatSportType(row.sport_type)}</td>
-              <td>{new Date(row.event_timestamp).toLocaleString()}</td>
-              <td>{new Date(row.last_updated_timestamp).toLocaleString()}</td>
+              <th
+                onClick={() => handleMoneylineSort("line")}
+                style={{ cursor: "pointer" }}
+              >
+                Line{" "}
+                {moneylineSortConfig.key === "line"
+                  ? moneylineSortConfig.direction === "asc"
+                    ? "▲"
+                    : "▼"
+                  : ""}
+              </th>
+              <th
+                onClick={() => handleMoneylineSort("expected_value")}
+                style={{ cursor: "pointer" }}
+              >
+                Expected Value{" "}
+                {moneylineSortConfig.key === "expected_value"
+                  ? moneylineSortConfig.direction === "asc"
+                    ? "▲"
+                    : "▼"
+                  : ""}
+              </th>
+              <th
+                onClick={() => handleMoneylineSort("fair_probability")}
+                style={{ cursor: "pointer" }}
+              >
+                Fair Probability{" "}
+                {moneylineSortConfig.key === "fair_probability"
+                  ? moneylineSortConfig.direction === "asc"
+                    ? "▲"
+                    : "▼"
+                  : ""}
+              </th>
+              <th
+                onClick={() => handleMoneylineSort("implied_probability")}
+                style={{ cursor: "pointer" }}
+              >
+                Implied Probability{" "}
+                {moneylineSortConfig.key === "implied_probability"
+                  ? moneylineSortConfig.direction === "asc"
+                    ? "▲"
+                    : "▼"
+                  : ""}
+              </th>
+              <th>Market Overround</th>
+              <th>Sport</th>
+              <th>Event Timestamp</th>
+              <th>Last Update</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {sortedMoneylineData.map((row) => (
+              <tr key={row.id}>
+                <td>{row.team}</td>
+                <td>{row.bookie}</td>
+
+                <td>{row.line}</td>
+                <td>{row.expected_value}</td>
+                <td>{(row.fair_probability * 100).toFixed(2)}%</td>
+                <td>{(row.implied_probability * 100).toFixed(2)}%</td>
+                <td>{row.market_overround}</td>
+                <td>{formatSportType(row.sport_type)}</td>
+                <td>{new Date(row.event_timestamp).toLocaleString()}</td>
+                <td>{new Date(row.last_updated_timestamp).toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <h1 className="expectedvalue-sports-title">Current +EV Props</h1>
-      <table border="1" cellPadding="5">
-        <thead>
-          <tr>
-            <th>Player Name</th>
-            <th>Bookie</th>
-            <th>Prop Type</th>
-            <th>Type</th>
+      <div className="table-container">
+        <table border="1" cellPadding="5">
+          <thead>
+            <tr>
+              <th>Player Name</th>
+              <th>Bookie</th>
+              <th>Prop Type</th>
+              <th>Type</th>
 
-            <th
-              onClick={() => handlePropsSort("Betting_Line")}
-              style={{ cursor: "pointer" }}
-            >
-              Line{" "}
-              {propsSortConfig.key === "Betting_Line"
-                ? propsSortConfig.direction === "asc"
-                  ? "▲"
-                  : "▼"
-                : ""}
-            </th>
-            <th>O/U Line</th>
-            <th
-              onClick={() => handlePropsSort("Expected_Value")}
-              style={{ cursor: "pointer" }}
-            >
-              Expected Value{" "}
-              {propsSortConfig.key === "Expected_Value"
-                ? propsSortConfig.direction === "asc"
-                  ? "▲"
-                  : "▼"
-                : ""}
-            </th>
-            <th
-              onClick={() => handlePropsSort("Fair_Probability")}
-              style={{ cursor: "pointer" }}
-            >
-              Fair Probability{" "}
-              {propsSortConfig.key === "Fair_Probability"
-                ? propsSortConfig.direction === "asc"
-                  ? "▲"
-                  : "▼"
-                : ""}
-            </th>
-            <th
-              onClick={() => handlePropsSort("Implied_Probability")}
-              style={{ cursor: "pointer" }}
-            >
-              Implied Probability{" "}
-              {propsSortConfig.key === "Implied_Probability"
-                ? propsSortConfig.direction === "asc"
-                  ? "▲"
-                  : "▼"
-                : ""}
-            </th>
-            <th>Market Overround</th>
-            <th>Sport</th>
-            <th>Last Update</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sortedPropsData.map((row) => (
-            <tr key={row.id}>
-              <td>{row.Player_Name}</td>
-              <td>{row.Bookie}</td>
-              <td>{formatPropType(row.Prop_Type)}</td>
-              <td>{row.Bet_Type}</td>
-              <td>{row.Betting_Line}</td>
-              <td>{row.Betting_Point}</td>
-              <td>{row.Expected_Value}</td>
-              <td>{(row.Fair_Probability * 100).toFixed(2)}%</td>
-              <td>{(row.Implied_Probability * 100).toFixed(2)}%</td>
-              <td>{row.Market_Overround}</td>
-              <td>{formatSportType(row.sport_type)}</td>
-              <td>{new Date(row.last_updated_timestamp).toLocaleString()}</td>
+              <th
+                onClick={() => handlePropsSort("Betting_Line")}
+                style={{ cursor: "pointer" }}
+              >
+                Line{" "}
+                {propsSortConfig.key === "Betting_Line"
+                  ? propsSortConfig.direction === "asc"
+                    ? "▲"
+                    : "▼"
+                  : ""}
+              </th>
+              <th>O/U Line</th>
+              <th
+                onClick={() => handlePropsSort("Expected_Value")}
+                style={{ cursor: "pointer" }}
+              >
+                Expected Value{" "}
+                {propsSortConfig.key === "Expected_Value"
+                  ? propsSortConfig.direction === "asc"
+                    ? "▲"
+                    : "▼"
+                  : ""}
+              </th>
+              <th
+                onClick={() => handlePropsSort("Fair_Probability")}
+                style={{ cursor: "pointer" }}
+              >
+                Fair Probability{" "}
+                {propsSortConfig.key === "Fair_Probability"
+                  ? propsSortConfig.direction === "asc"
+                    ? "▲"
+                    : "▼"
+                  : ""}
+              </th>
+              <th
+                onClick={() => handlePropsSort("Implied_Probability")}
+                style={{ cursor: "pointer" }}
+              >
+                Implied Probability{" "}
+                {propsSortConfig.key === "Implied_Probability"
+                  ? propsSortConfig.direction === "asc"
+                    ? "▲"
+                    : "▼"
+                  : ""}
+              </th>
+              <th>Market Overround</th>
+              <th>Sport</th>
+              <th>Last Update</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {sortedPropsData.map((row) => (
+              <tr key={row.id}>
+                <td>{row.Player_Name}</td>
+                <td>{row.Bookie}</td>
+                <td>{formatPropType(row.Prop_Type)}</td>
+                <td>{row.Bet_Type}</td>
+                <td>{row.Betting_Line}</td>
+                <td>{row.Betting_Point}</td>
+                <td>{row.Expected_Value}</td>
+                <td>{(row.Fair_Probability * 100).toFixed(2)}%</td>
+                <td>{(row.Implied_Probability * 100).toFixed(2)}%</td>
+                <td>{row.Market_Overround}</td>
+                <td>{formatSportType(row.sport_type)}</td>
+                <td>{new Date(row.last_updated_timestamp).toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

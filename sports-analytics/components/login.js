@@ -56,6 +56,10 @@ const Login = () => {
 
         // Redirect to homepage - Original kept
         router.push("/");
+        // refresh for styles
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
       } else {
         console.log("[LOGIN COMPONENT] Login failed:", data.detail);
         setError(

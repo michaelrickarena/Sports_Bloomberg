@@ -97,7 +97,7 @@ const Register = () => {
             onChange={(e) => setTermsAccepted(e.target.checked)}
           />
           <label htmlFor="terms" style={{ marginLeft: "0.5rem" }}>
-            I agree to the{" "}
+            I have read and agree to the{" "}
             <Link href="/termsandconditions">Terms and Conditions</Link>
           </label>
         </div>

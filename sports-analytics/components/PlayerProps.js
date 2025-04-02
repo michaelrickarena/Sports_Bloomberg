@@ -256,13 +256,7 @@ const PlayerProps = ({ sportType }) => {
               placeholder="Search player names..."
               value={searchQuery}
               onChange={handleSearchChange}
-              style={{
-                padding: "8px",
-                marginTop: "16px",
-                marginBottom: "16px",
-                width: "25%",
-                border: "1px solid #000",
-              }}
+              className="search-input"
             />
             {searchQuery && filteredPlayerNames.length > 0 && (
               <ul style={{ listStyleType: "none", paddingLeft: "0" }}>
