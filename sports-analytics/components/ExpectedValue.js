@@ -42,6 +42,10 @@ export default function ExpectedValue() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        if (!sessionStorage.getItem("reloaded")) {
+          sessionStorage.setItem("reloaded", "true");
+          window.location.reload();
+        }
         const [moneylineRes, propsRes] = await Promise.all([
           fetch(
             `${process.env.NEXT_PUBLIC_API_BASE_URL}/expected-value-moneyline/`
