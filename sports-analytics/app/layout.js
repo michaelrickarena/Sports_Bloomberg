@@ -28,6 +28,7 @@ function LayoutContent({ children }) {
         "/password-reset",
         "/password-reset-confirm",
         "/termsandconditions",
+        "/privacy",
       ];
 
       const isPublicPath =
