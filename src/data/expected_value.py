@@ -10,7 +10,7 @@ class ExpectedValueAnalyzer:
         self.results = []
         self.ev_target = ev_target
         self.inflate_prop = { 'player_goal_scorer_anytime', 'batter_home_runs', 'player_goal_scorer_first'}
-        self.inflate_rate = 0.075
+        self.inflate_rate = 0.05
         self.multi_outcome_props = {
             'player_1st_td', 'player_last_td', 'player_first_basket', 'player_first_team_basket',
             'player_goal_scorer_first', 'player_goal_scorer_last', 'batter_first_home_run'
