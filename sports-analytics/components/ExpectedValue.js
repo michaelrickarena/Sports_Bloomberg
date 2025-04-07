@@ -301,7 +301,7 @@ export default function ExpectedValue() {
                 <td>{row.Expected_Value}</td>
                 <td>{(row.Fair_Probability * 100).toFixed(2)}%</td>
                 <td>{(row.Implied_Probability * 100).toFixed(2)}%</td>
-                <td>{row.num_bookies}</td>
+                <td>{row.Num_Bookies}</td>
                 <td>{formatSportType(row.sport_type)}</td>
                 <td>{new Date(row.last_updated_timestamp).toLocaleString()}</td>
               </tr>
