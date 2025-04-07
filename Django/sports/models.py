@@ -444,6 +444,7 @@ class ExpectedValueProps(models.Model):
     Market_Overround = models.FloatField(db_column='market_overround')
     sport_type = models.TextField(db_column='sport_type')
     last_updated_timestamp = models.DateTimeField(db_column='last_updated_timestamp')
+    Num_Bookies = models.IntegerField(db_column='num_bookies')
 
     class Meta:
         db_table = 'expected_value_props'

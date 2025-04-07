@@ -284,7 +284,7 @@ export default function ExpectedValue() {
                     : "▼"
                   : ""}
               </th>
-              <th>Market Overround</th>
+              <th># of Bookies</th>
               <th>Sport</th>
               <th>Last Update</th>
             </tr>
@@ -301,7 +301,7 @@ export default function ExpectedValue() {
                 <td>{row.Expected_Value}</td>
                 <td>{(row.Fair_Probability * 100).toFixed(2)}%</td>
                 <td>{(row.Implied_Probability * 100).toFixed(2)}%</td>
-                <td>{row.Market_Overround}</td>
+                <td>{row.num_bookies}</td>
                 <td>{formatSportType(row.sport_type)}</td>
                 <td>{new Date(row.last_updated_timestamp).toLocaleString()}</td>
               </tr>
