@@ -330,8 +330,9 @@ div input[type="checkbox"]:checked + label {
 }
 
 .expectedvalue-sports-title {
-  margin-top: 15px;
-  margin-bottom: 10px;
+  margin-top: 5px;
+  margin-bottom: 0px;
+  text-align: center;
 }
 
 .search-input {

@@ -3,7 +3,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ExpectedValueAnalyzer:
-    def __init__(self, bet_lines, min_bookies=6, ev_target=5):
+    def __init__(self, bet_lines, min_bookies=3, ev_target=10):
         """Initialize the analyzer with bet lines (moneylines or props) and a minimum bookie threshold."""
         self.bet_lines = bet_lines
         self.min_bookies = min_bookies

@@ -1,0 +1,71 @@
+/* ../styles/expectedvalue.css */
+.filter-container {
+  width: 50%;
+  margin: 0 auto;
+  padding: 20px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background-color: #e0e9ea;
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.1);
+  overflow-x: auto;
+  margin-bottom: 50px;
+}
+
+.filters {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+}
+
+.filter-item label {
+  margin-bottom: 8px;
+  font-size: 1rem;
+  color: #333;
+}
+
+.filter-item select,
+.filter-item input {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0;
+  border: 1px solid #e0e9ea;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.filter-item select:hover,
+.filter-item input:hover {
+  border-color: #0070f3;
+}
+
+.expectedvalue-sports-content {
+  margin-top: 30px;
+  margin-bottom: 10px;
+  text-align: center;
+  font-size: 1rem;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .filter-container {
+    width: 90%; /* Near full-width for mobile */
+    padding: 15px; /* Slightly less padding */
+  }
+
+  .filters {
+    flex-direction: column; /* Stack filters vertically */
+    gap: 15px; /* Reduce gap */
+  }
+
+  .filter-item {
+    min-width: 0; /* Remove min-width constraint */
+  }
+}

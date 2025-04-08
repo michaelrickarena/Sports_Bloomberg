@@ -1,6 +1,8 @@
+// ExpectedValue.js
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import "../styles/expectedvalue.css"; // Import the regular stylesheet
 
 // Helper to format prop type strings
 const formatPropType = (propType) => {
@@ -14,11 +16,7 @@ const formatPropType = (propType) => {
 // Helper to format sport type strings
 const formatSportType = (sportType) => {
   if (!sportType) return "";
-
-  // Remove everything before the first underscore (including the underscore)
   const formattedSportType = sportType.split("_").slice(1).join("_");
-
-  // Capitalize every letter in the remaining part
   return formattedSportType.toUpperCase();
 };
 
@@ -38,6 +36,13 @@ export default function ExpectedValue() {
     key: null,
     direction: "asc",
   });
+
+  // Filter states for props table
+  const [selectedBookie, setSelectedBookie] = useState("");
+  const [minBookies, setMinBookies] = useState("");
+  const [minFairProbability, setMinFairProbability] = useState("");
+  const [lineOperator, setLineOperator] = useState("");
+  const [lineValue, setLineValue] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -75,6 +80,39 @@ export default function ExpectedValue() {
     fetchData();
   }, []);
 
+  // Compute unique bookies for the dropdown filter
+  const uniqueBookies = useMemo(() => {
+    const bookies = propsData.map((row) => row.Bookie);
+    return [...new Set(bookies)].sort();
+  }, [propsData]);
+
+  // Filter props data based on user inputs
+  const filteredPropsData = useMemo(() => {
+    return propsData.filter((row) => {
+      if (selectedBookie && row.Bookie !== selectedBookie) return false;
+      if (minBookies !== "" && row.Num_Bookies <= Number(minBookies))
+        return false;
+      if (
+        minFairProbability !== "" &&
+        row.Fair_Probability <= Number(minFairProbability) / 100
+      )
+        return false;
+      if (lineOperator && lineValue !== "") {
+        const lineVal = Number(lineValue);
+        if (lineOperator === ">" && row.Betting_Line <= lineVal) return false;
+        if (lineOperator === "<" && row.Betting_Line >= lineVal) return false;
+      }
+      return true;
+    });
+  }, [
+    propsData,
+    selectedBookie,
+    minBookies,
+    minFairProbability,
+    lineOperator,
+    lineValue,
+  ]);
+
   // Sorting functions for moneyline
   const handleMoneylineSort = (key) => {
     let direction = "asc";
@@ -103,12 +141,10 @@ export default function ExpectedValue() {
       sortableItems.sort((a, b) => {
         let aVal = a[moneylineSortConfig.key];
         let bVal = b[moneylineSortConfig.key];
-
         if (!isNaN(aVal) && !isNaN(bVal)) {
           aVal = Number(aVal);
           bVal = Number(bVal);
         }
-
         if (aVal < bVal) {
           return moneylineSortConfig.direction === "asc" ? -1 : 1;
         }
@@ -121,19 +157,17 @@ export default function ExpectedValue() {
     return sortableItems;
   }, [moneylineData, moneylineSortConfig]);
 
-  // Sorted props data
+  // Sorted props data (uses filtered data)
   const sortedPropsData = useMemo(() => {
-    let sortableItems = [...propsData];
+    let sortableItems = [...filteredPropsData];
     if (propsSortConfig.key !== null) {
       sortableItems.sort((a, b) => {
         let aVal = a[propsSortConfig.key];
         let bVal = b[propsSortConfig.key];
-
         if (!isNaN(aVal) && !isNaN(bVal)) {
           aVal = Number(aVal);
           bVal = Number(bVal);
         }
-
         if (aVal < bVal) {
           return propsSortConfig.direction === "asc" ? -1 : 1;
         }
@@ -144,7 +178,7 @@ export default function ExpectedValue() {
       });
     }
     return sortableItems;
-  }, [propsData, propsSortConfig]);
+  }, [filteredPropsData, propsSortConfig]);
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
@@ -158,7 +192,6 @@ export default function ExpectedValue() {
             <tr>
               <th>Team</th>
               <th>Bookie</th>
-
               <th
                 onClick={() => handleMoneylineSort("line")}
                 style={{ cursor: "pointer" }}
@@ -214,7 +247,6 @@ export default function ExpectedValue() {
               <tr key={row.id}>
                 <td>{row.team}</td>
                 <td>{row.bookie}</td>
-
                 <td>{row.line}</td>
                 <td>{row.expected_value}</td>
                 <td>{(row.fair_probability * 100).toFixed(2)}%</td>
@@ -230,6 +262,63 @@ export default function ExpectedValue() {
       </div>
 
       <h1 className="expectedvalue-sports-title">Current +EV Props</h1>
+      <h4 className="expectedvalue-sports-content">+EV Prop Filters</h4>
+      <div className="filter-container">
+        <div className="filters">
+          <div className="filter-item">
+            <label htmlFor="bookie-select">Bookie:</label>
+            <select
+              id="bookie-select"
+              value={selectedBookie}
+              onChange={(e) => setSelectedBookie(e.target.value)}
+            >
+              <option value="">All</option>
+              {uniqueBookies.map((bookie) => (
+                <option key={bookie} value={bookie}>
+                  {bookie}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="filter-item">
+            <label htmlFor="min-bookies">Min # of Bookies:</label>
+            <input
+              id="min-bookies"
+              type="number"
+              value={minBookies}
+              onChange={(e) => setMinBookies(e.target.value)}
+              placeholder="e.g., 2"
+            />
+          </div>
+          <div className="filter-item">
+            <label htmlFor="min-fair-prob">Min Fair Probability (%):</label>
+            <input
+              id="min-fair-prob"
+              type="number"
+              value={minFairProbability}
+              onChange={(e) => setMinFairProbability(e.target.value)}
+              placeholder="e.g., 50"
+            />
+          </div>
+          <div className="filter-item">
+            <label>Line Filter:</label>
+            <select
+              value={lineOperator}
+              onChange={(e) => setLineOperator(e.target.value)}
+            >
+              <option value="">None</option>
+              <option value=">">Greater than</option>
+              <option value="<">Less than</option>
+            </select>
+            <input
+              type="number"
+              value={lineValue}
+              onChange={(e) => setLineValue(e.target.value)}
+              placeholder="e.g., 100"
+            />
+          </div>
+        </div>
+      </div>
       <div className="table-container">
         <table border="1" cellPadding="5">
           <thead>
@@ -238,7 +327,6 @@ export default function ExpectedValue() {
               <th>Bookie</th>
               <th>Prop Type</th>
               <th>Type</th>
-
               <th
                 onClick={() => handlePropsSort("Betting_Line")}
                 style={{ cursor: "pointer" }}
