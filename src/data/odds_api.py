@@ -152,22 +152,21 @@ class Odds_API:
             ],
             'NBA': [
                 'player_points', 'player_rebounds', 'player_assists', 
-                'player_threes', 'player_blocks', 'player_steals', 'player_blocks_steals', 
-                'player_points_rebounds', 'player_turnovers', 'player_points_rebounds_assists', 'player_points_assists', 
+                'player_threes', 'player_blocks', 'player_steals', 
+                'player_turnovers', 'player_points_assists', 
                 'player_rebounds_assists', 'player_field_goals', 'player_first_basket',
                 'player_double_double', 'player_triple_double'
             ],
             'NHL': [
                 'player_points', 'player_power_play_points', 'player_assists', 
                 'player_shots_on_goal', 'player_goals', 
-                'player_total_saves', 'player_goal_scorer_first', 'player_goal_scorer_last', 'player_goal_scorer_anytime'
+                'player_total_saves', 'player_goal_scorer_first', 'player_goal_scorer_anytime'
             ],
             'MLB': [
                 'batter_home_runs', 'batter_first_home_run', 'batter_hits', 'batter_total_bases', 
-                'batter_runs_scored', 'batter_hits_runs_rbis', 'pitcher_strikeouts', 'batter_singles',
+                'batter_runs_scored', 'batter_hits_runs_rbis', 'batter_singles',
                 'batter_doubles', 'batter_triples', 'batter_strikeouts', 
-                'batter_rbis', 'batter_walks', 'batter_stolen_bases', 
-                'pitcher_hits_allowed', 'pitcher_outs'
+                'batter_rbis', 'batter_walks', 'batter_stolen_bases'
             ]
         }
 
