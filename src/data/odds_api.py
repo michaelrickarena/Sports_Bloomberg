@@ -59,7 +59,7 @@ class Odds_API:
         all_team_odds = []
         for sport in self.active_sports:
             data = self._make_request(f'/v4/sports/{sport}/odds/', params={
-                'regions': 'us',
+                'regions': 'us,us2',
                 'markets': 'h2h,spreads,totals',
                 'oddsFormat': 'american'
             })
@@ -151,23 +151,23 @@ class Odds_API:
                 'player_sacks', 'player_solo_tackles', 'player_tackles_assists', 'player_last_td'
             ],
             'NBA': [
-                'player_points', 'player_points_q1', 'player_rebounds', 'player_rebounds_q1', 'player_assists', 
-                'player_assists_q1', 'player_threes', 'player_blocks', 'player_steals', 'player_blocks_steals', 
+                'player_points', 'player_rebounds', 'player_assists', 
+                'player_threes', 'player_blocks', 'player_steals', 'player_blocks_steals', 
                 'player_points_rebounds', 'player_turnovers', 'player_points_rebounds_assists', 'player_points_assists', 
-                'player_rebounds_assists', 'player_field_goals', 'player_frees_made', 'player_frees_attempts', 'player_first_basket',
-                'player_first_team_basket', 'player_double_double', 'player_triple_double'
+                'player_rebounds_assists', 'player_field_goals', 'player_first_basket',
+                'player_double_double', 'player_triple_double'
             ],
             'NHL': [
                 'player_points', 'player_power_play_points', 'player_assists', 
-                'player_blocked_shots', 'player_shots_on_goal', 'player_goals', 
+                'player_shots_on_goal', 'player_goals', 
                 'player_total_saves', 'player_goal_scorer_first', 'player_goal_scorer_last', 'player_goal_scorer_anytime'
             ],
             'MLB': [
                 'batter_home_runs', 'batter_first_home_run', 'batter_hits', 'batter_total_bases', 
                 'batter_runs_scored', 'batter_hits_runs_rbis', 'pitcher_strikeouts', 'batter_singles',
-                'batter_doubles', 'batter_triples', 'batter_strikeouts', 'pitcher_record_a_win', 
-                'pitcher_earned_runs', 'batter_rbis', 'batter_walks', 'batter_stolen_bases', 
-                'pitcher_hits_allowed', 'pitcher_outs', 'pitcher_walks'
+                'batter_doubles', 'batter_triples', 'batter_strikeouts', 
+                'batter_rbis', 'batter_walks', 'batter_stolen_bases', 
+                'pitcher_hits_allowed', 'pitcher_outs'
             ]
         }
 
@@ -199,7 +199,7 @@ class Odds_API:
             try:
                 # Fetch props for the event
                 data = self._make_request(f'/v4/sports/{sport}/events/{event_id}/odds/', params={
-                    'regions': 'us',
+                    'regions': 'us,us2',
                     'markets': markets_joined,
                     'oddsFormat': 'american'
                 })
