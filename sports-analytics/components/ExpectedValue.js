@@ -1,4 +1,3 @@
-// ExpectedValue.js
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -43,6 +42,8 @@ export default function ExpectedValue() {
   const [minFairProbability, setMinFairProbability] = useState("");
   const [lineOperator, setLineOperator] = useState("");
   const [lineValue, setLineValue] = useState("");
+  const [zScoreOperator, setZScoreOperator] = useState("");
+  const [zScoreValue, setZScoreValue] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -102,6 +103,11 @@ export default function ExpectedValue() {
         if (lineOperator === ">" && row.Betting_Line <= lineVal) return false;
         if (lineOperator === "<" && row.Betting_Line >= lineVal) return false;
       }
+      if (zScoreOperator && zScoreValue !== "") {
+        const zVal = Number(zScoreValue);
+        if (zScoreOperator === ">" && row.z_score <= zVal) return false;
+        if (zScoreOperator === "<" && row.z_score >= zVal) return false;
+      }
       return true;
     });
   }, [
@@ -111,6 +117,8 @@ export default function ExpectedValue() {
     minFairProbability,
     lineOperator,
     lineValue,
+    zScoreOperator,
+    zScoreValue,
   ]);
 
   // Sorting functions for moneyline
@@ -315,6 +323,23 @@ export default function ExpectedValue() {
               value={lineValue}
               onChange={(e) => setLineValue(e.target.value)}
               placeholder="e.g., 100"
+            />
+          </div>
+          <div className="filter-item">
+            <label>Z Score Filter:</label>
+            <select
+              value={zScoreOperator}
+              onChange={(e) => setZScoreOperator(e.target.value)}
+            >
+              <option value="">None</option>
+              <option value=">">Greater than</option>
+              <option value="<">Less than</option>
+            </select>
+            <input
+              type="number"
+              value={zScoreValue}
+              onChange={(e) => setZScoreValue(e.target.value)}
+              placeholder="e.g., 1.5"
             />
           </div>
         </div>
