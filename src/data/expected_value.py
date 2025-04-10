@@ -9,6 +9,7 @@ class ExpectedValueAnalyzer:
         self.min_bookies = min_bookies
         self.results = []
         self.ev_target = ev_target
+        self.odds_max = 50000
         self.inflate_prop = { 'player_goal_scorer_anytime', 'batter_home_runs', 'player_goal_scorer_first'}
         self.inflate_rate = 0.085
         self.multi_outcome_props = {
@@ -72,8 +73,6 @@ class ExpectedValueAnalyzer:
             return 1.625
         elif odds <= 3000:
             return 1.775
-        elif odds <= 5000:
-            return 1.997
         else:
             return 3
 
@@ -301,7 +300,7 @@ class ExpectedValueAnalyzer:
                     continue
                 fair_prob = avg_imp_prob / market_overround
                 for bookie, odds in odds_list:
-                    if odds is None or odds > 2000:  # Cap at +2000
+                    if odds is None or odds > self.odds_max:  # Cap at +2000
                         continue
                     ev = self.calculate_expected_value(odds, fair_prob)
                     if ev > self.ev_target:
@@ -393,7 +392,7 @@ class ExpectedValueAnalyzer:
                     fair_prob_no = avg_imp_prob_no / market_overround
 
                     for bookie, odds in outcomes.get("yes", []):
-                        if odds is None or odds > 2000:
+                        if odds is None or odds > self.odds_max:
                             continue
                         ev = self.calculate_expected_value(odds, fair_prob_yes)
                         if ev > self.ev_target:
@@ -409,7 +408,7 @@ class ExpectedValueAnalyzer:
                                 best_bets[unique_key] = bet_tuple
 
                     for bookie, odds in outcomes.get("no", []):
-                        if odds is None or odds > 2000:
+                        if odds is None or odds > self.odds_max:
                             continue
                         ev = self.calculate_expected_value(odds, fair_prob_no)
                         if ev > self.ev_target:
@@ -434,7 +433,7 @@ class ExpectedValueAnalyzer:
                             continue
                         fair_prob_yes = avg_imp_prob_yes / assumed_overround_yes
                         for bookie, odds in outcomes["yes"]:
-                            if odds is None or odds > 2000:
+                            if odds is None or odds > self.odds_max:
                                 continue
                             ev = self.calculate_expected_value(odds, fair_prob_yes)
                             if ev > self.ev_target:
@@ -459,7 +458,7 @@ class ExpectedValueAnalyzer:
                             continue
                         fair_prob_no = avg_imp_prob_no / assumed_overround_no
                         for bookie, odds in outcomes["no"]:
-                            if odds is None or odds > 2000:
+                            if odds is None or odds > self.odds_max:
                                 continue
                             ev = self.calculate_expected_value(odds, fair_prob_no)
                             if ev > self.ev_target:
@@ -498,7 +497,7 @@ class ExpectedValueAnalyzer:
                     fair_prob_under = avg_imp_prob_under / market_overround
 
                     for bookie, odds in outcomes.get("over", []):
-                        if odds is None or odds > 2000:
+                        if odds is None or odds > self.odds_max:
                             continue
                         ev = self.calculate_expected_value(odds, fair_prob_over)
                         if ev > self.ev_target:
@@ -514,7 +513,7 @@ class ExpectedValueAnalyzer:
                                 best_bets[unique_key] = bet_tuple
 
                     for bookie, odds in outcomes.get("under", []):
-                        if odds is None or odds > 2000:
+                        if odds is None or odds > self.odds_max:
                             continue
                         ev = self.calculate_expected_value(odds, fair_prob_under)
                         if ev > self.ev_target:
@@ -539,7 +538,7 @@ class ExpectedValueAnalyzer:
                             continue
                         fair_prob_over = avg_imp_prob_over / assumed_overround_over
                         for bookie, odds in outcomes["over"]:
-                            if odds is None or odds > 2000:
+                            if odds is None or odds > self.odds_max:
                                 continue
                             ev = self.calculate_expected_value(odds, fair_prob_over)
                             if ev > self.ev_target:
@@ -564,7 +563,7 @@ class ExpectedValueAnalyzer:
                             continue
                         fair_prob_under = avg_imp_prob_under / assumed_overround_under
                         for bookie, odds in outcomes["under"]:
-                            if odds is None or odds > 2000:
+                            if odds is None or odds > self.odds_max:
                                 continue
                             ev = self.calculate_expected_value(odds, fair_prob_under)
                             if ev > self.ev_target:
