@@ -1093,6 +1093,7 @@ class DB:
                         sport_type TEXT NOT NULL,
                         last_updated_timestamp TIMESTAMPTZ NOT NULL,
                         num_bookies INT NOT NULL,
+                        z_score DECIMAL(10, 2) NULL,
                         CONSTRAINT expected_value_props_game_id_bookie_prop_bet_player_line_key
                         UNIQUE (game_ID, Bookie, Prop_Type, Bet_Type, Player_Name, Betting_Line)
                     );
@@ -1123,6 +1124,7 @@ class DB:
                 - sport_type (str): Type of sport (e.g., 'basketball_nba').
                 - last_updated_timestamp (str): Last update time in ISO 8601 format.
                 - num_bookies: number of bookies offering this prop
+                - z_score (float or None): Z-score of implied probability vs. market, rounded to 2 decimal places, or NULL if not calculable.
         """
         if not isinstance(expected_value_props, list):
             raise TypeError(f"expected_value_props must be a list of tuples, got {type(expected_value_props)}")
@@ -1142,8 +1144,8 @@ class DB:
                         INSERT INTO expected_value_props (
                             game_ID, Bookie, Prop_Type, Bet_Type, Player_Name, Betting_Point, Betting_Line,
                             Expected_Value, Fair_Probability, Implied_Probability, Market_Overround,
-                            sport_type, last_updated_timestamp, num_bookies
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            sport_type, last_updated_timestamp, num_bookies, z_score
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT ON CONSTRAINT expected_value_props_game_id_bookie_prop_bet_player_line_key 
                         DO NOTHING
                     """, line)

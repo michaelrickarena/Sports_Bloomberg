@@ -3,33 +3,23 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ExpectedValueAnalyzer:
-    def __init__(self, bet_lines, min_bookies=3, ev_target=10):
+    def __init__(self, bet_lines, min_bookies=3, ev_target=7.5):
         """Initialize the analyzer with bet lines (moneylines or props) and a minimum bookie threshold."""
         self.bet_lines = bet_lines
         self.min_bookies = min_bookies
         self.results = []
         self.ev_target = ev_target
         self.odds_max = 50000
-        self.inflate_prop = { 'player_goal_scorer_anytime', 'batter_home_runs', 'player_goal_scorer_first'}
+        self.inflate_prop = {'player_goal_scorer_anytime', 'batter_home_runs', 'player_goal_scorer_first'}
         self.inflate_rate = 0.085
         self.multi_outcome_props = {
             'player_1st_td', 'player_last_td', 'player_first_basket', 'player_first_team_basket',
             'player_goal_scorer_first', 'player_goal_scorer_last', 'batter_first_home_run'
         }
-        # Initialize dictionary to store overrounds by odds range
         self.overround_by_range = {
-            (-float('inf'), -300): [],
-            (-300, -200): [],
-            (-200, -100): [],
-            (-100, 150): [],
-            (150, 250): [],
-            (250, 350): [],
-            (350, 500): [],
-            (500, 650): [],
-            (650, 800): [],
-            (800, 1200): [],
-            (1200, 2000): [],
-            (2000, 3000): [],
+            (-float('inf'), -300): [], (-300, -200): [], (-200, -100): [], (-100, 150): [],
+            (150, 250): [], (250, 350): [], (350, 500): [], (500, 650): [],
+            (650, 800): [], (800, 1200): [], (1200, 2000): [], (2000, 3000): [],
             (3000, float('inf')): []
         }
 
@@ -53,57 +43,33 @@ class ExpectedValueAnalyzer:
 
     def get_assumed_overround(self, odds):
         """Determine the static assumed overround based on the median odds tier."""
-        if odds <= -300:
-            return 1.0312
-        elif odds <= -200:
-            return 1.0411
-        elif odds <= -100:
-            return 1.0497
-        elif odds <= 150:
-            return 1.0622
-        elif odds <= 300:
-            return 1.0997
-        elif odds <= 500:
-            return 1.1945
-        elif odds <= 800:
-            return 1.3997
-        elif odds <= 1200:
-            return 1.4989
-        elif odds <= 2000:
-            return 1.625
-        elif odds <= 3000:
-            return 1.775
-        else:
-            return 3
+        if odds <= -300: return 1.0212
+        elif odds <= -200: return 1.0311
+        elif odds <= -100: return 1.0397
+        elif odds <= 150: return 1.0622
+        elif odds <= 300: return 1.0997
+        elif odds <= 500: return 1.1945
+        elif odds <= 800: return 1.3997
+        elif odds <= 1200: return 1.4989
+        elif odds <= 2000: return 1.625
+        elif odds <= 3000: return 1.775
+        else: return 3
 
     def get_odds_range(self, odds):
         """Determine the odds range for a given odds value."""
-        if odds <= -300:
-            return (-float('inf'), -300)
-        elif odds <= -200:
-            return (-300, -200)
-        elif odds <= -100:
-            return (-200, -100)
-        elif odds <= 150:
-            return (-100, 150)
-        elif odds <= 250:
-            return (150, 250)
-        elif odds <= 350:
-            return (250, 350)
-        elif odds <= 500:
-            return (350, 500)
-        elif odds <= 650:
-            return (500, 650)
-        elif odds <= 800:
-            return (650, 800)
-        elif odds <= 1200:
-            return (800, 1200)
-        elif odds <= 2000:
-            return (1200, 2000)
-        elif odds <= 3000:
-            return (2000, 3000)
-        else:
-            return (3000, float('inf'))
+        if odds <= -300: return (-float('inf'), -300)
+        elif odds <= -200: return (-300, -200)
+        elif odds <= -100: return (-200, -100)
+        elif odds <= 150: return (-100, 150)
+        elif odds <= 250: return (150, 250)
+        elif odds <= 350: return (250, 350)
+        elif odds <= 500: return (350, 500)
+        elif odds <= 650: return (500, 650)
+        elif odds <= 800: return (650, 800)
+        elif odds <= 1200: return (800, 1200)
+        elif odds <= 2000: return (1200, 2000)
+        elif odds <= 3000: return (2000, 3000)
+        else: return (3000, float('inf'))
 
     def get_median_assumed_overround(self, median_odds, prop_type):
         """Get the median assumed overround for the given median odds, inflating for specific props if necessary."""
@@ -114,12 +80,24 @@ class ExpectedValueAnalyzer:
             sorted_overrounds = sorted(overrounds)
             n = len(sorted_overrounds)
             mid = n // 2
-            overround = (sorted_overrounds[mid - 1] + sorted_overrounds[mid]) / 2 if n % 2 == 0 else sorted_overrounds[mid]  # Fixed typo: sorted_odds -> sorted_overrounds
+            overround = (sorted_overrounds[mid - 1] + sorted_overrounds[mid]) / 2 if n % 2 == 0 else sorted_overrounds[mid]
         else:
             overround = self.get_assumed_overround(median_odds)
         if overround is not None and prop_type in self.inflate_prop:
             overround *= (1 + self.inflate_rate)
         return overround
+
+    def calculate_z_score(self, imp_prob, imp_probs_list):
+        """Calculate the z-score of an implied probability given a list of implied probabilities."""
+        if len(imp_probs_list) < 2:  # Need at least 2 for standard deviation
+            return None
+        mean_imp = sum(imp_probs_list) / len(imp_probs_list)
+        variance = sum((p - mean_imp) ** 2 for p in imp_probs_list) / len(imp_probs_list)
+        std_imp = variance ** 0.5
+        if std_imp == 0:  # Avoid division by zero
+            return 0
+        return (imp_prob - mean_imp) / std_imp
+
 
     def analyze_ml(self):
         """Analyze moneyline bets to find all +EV bets with max EV, returning a list of tuples."""
@@ -213,9 +191,9 @@ class ExpectedValueAnalyzer:
 
         multi_outcome_dict = {}
         single_outcome_dict = {}
-        best_bets = {}  # Dictionary to store the best bet for each unique key
+        best_bets = {}
 
-        # Group prop bets (unchanged from original)
+        # Group prop bets
         for line in self.bet_lines:
             game_id, last_updated_timestamp, bookie, prop_type, bet_type, player_name, betting_line, betting_point, sport_type = line
             if prop_type in self.multi_outcome_props and bet_type.lower() == "yes":
@@ -299,22 +277,26 @@ class ExpectedValueAnalyzer:
                 if len(bookies) < self.min_bookies:
                     continue
                 fair_prob = avg_imp_prob / market_overround
+                imp_probs = [self.calculate_implied_probability(o) for _, o in odds_list if o is not None]
                 for bookie, odds in odds_list:
-                    if odds is None or odds > self.odds_max:  # Cap at +2000
+                    if odds is None or odds > self.odds_max:
                         continue
                     ev = self.calculate_expected_value(odds, fair_prob)
                     if ev > self.ev_target:
+                        imp_prob = self.calculate_implied_probability(odds)
+                        z_score = self.calculate_z_score(imp_prob, imp_probs)
                         unique_key = (game_data['game_ID'], game_data['Prop_Type'], player_name)
                         bet_tuple = (
                             game_data['game_ID'], bookie, game_data['Prop_Type'], "yes",
                             player_name, "N/A", odds, round(ev, 2), round(fair_prob, 4),
-                            round(self.calculate_implied_probability(odds), 4), round(market_overround, 4),
-                            game_data['sport_type'], game_data['last_updated_timestamp'], len(bookies)
+                            round(imp_prob, 4), round(market_overround, 4),
+                            game_data['sport_type'], game_data['last_updated_timestamp'], len(bookies),
+                            round(z_score, 2) if z_score is not None else None
                         )
                         if unique_key not in best_bets or ev > best_bets[unique_key][7]:
                             best_bets[unique_key] = bet_tuple
 
-        # Pass 1: Collect overrounds for single-outcome props (unchanged)
+        # Pass 1: Collect overrounds for single-outcome props
         for key, data in single_outcome_dict.items():
             outcomes = data['outcomes']
             if "yes" in outcomes or "no" in outcomes:
@@ -396,13 +378,16 @@ class ExpectedValueAnalyzer:
                             continue
                         ev = self.calculate_expected_value(odds, fair_prob_yes)
                         if ev > self.ev_target:
+                            imp_prob = self.calculate_implied_probability(odds)
+                            z_score = self.calculate_z_score(imp_prob, imp_probs_yes)
                             unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], "yes")
                             bet_tuple = (
                                 data['game_ID'], bookie, data['Prop_Type'], "yes",
                                 data['Player_Name'], "N/A", odds, round(ev, 2),
-                                round(fair_prob_yes, 4), round(self.calculate_implied_probability(odds), 4),
+                                round(fair_prob_yes, 4), round(imp_prob, 4),
                                 round(market_overround, 4), data['sport_type'],
-                                data['last_updated_timestamp'], len(bookies_yes)
+                                data['last_updated_timestamp'], len(bookies_yes),
+                                round(z_score, 2) if z_score is not None else None
                             )
                             if unique_key not in best_bets or ev > best_bets[unique_key][7]:
                                 best_bets[unique_key] = bet_tuple
@@ -412,13 +397,16 @@ class ExpectedValueAnalyzer:
                             continue
                         ev = self.calculate_expected_value(odds, fair_prob_no)
                         if ev > self.ev_target:
+                            imp_prob = self.calculate_implied_probability(odds)
+                            z_score = self.calculate_z_score(imp_prob, imp_probs_no)
                             unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], "no")
                             bet_tuple = (
                                 data['game_ID'], bookie, data['Prop_Type'], "no",
                                 data['Player_Name'], "N/A", odds, round(ev, 2),
-                                round(fair_prob_no, 4), round(self.calculate_implied_probability(odds), 4),
+                                round(fair_prob_no, 4), round(imp_prob, 4),
                                 round(market_overround, 4), data['sport_type'],
-                                data['last_updated_timestamp'], len(bookies_no)
+                                data['last_updated_timestamp'], len(bookies_no),
+                                round(z_score, 2) if z_score is not None else None
                             )
                             if unique_key not in best_bets or ev > best_bets[unique_key][7]:
                                 best_bets[unique_key] = bet_tuple
@@ -437,13 +425,16 @@ class ExpectedValueAnalyzer:
                                 continue
                             ev = self.calculate_expected_value(odds, fair_prob_yes)
                             if ev > self.ev_target:
+                                imp_prob = self.calculate_implied_probability(odds)
+                                z_score = self.calculate_z_score(imp_prob, imp_probs_yes)
                                 unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], "yes")
                                 bet_tuple = (
                                     data['game_ID'], bookie, data['Prop_Type'], "yes",
                                     data['Player_Name'], "N/A", odds, round(ev, 2),
-                                    round(fair_prob_yes, 4), round(self.calculate_implied_probability(odds), 4),
+                                    round(fair_prob_yes, 4), round(imp_prob, 4),
                                     round(assumed_overround_yes, 4), data['sport_type'],
-                                    data['last_updated_timestamp'], len(bookies_yes)
+                                    data['last_updated_timestamp'], len(bookies_yes),
+                                    round(z_score, 2) if z_score is not None else None
                                 )
                                 if unique_key not in best_bets or ev > best_bets[unique_key][7]:
                                     best_bets[unique_key] = bet_tuple
@@ -462,13 +453,16 @@ class ExpectedValueAnalyzer:
                                 continue
                             ev = self.calculate_expected_value(odds, fair_prob_no)
                             if ev > self.ev_target:
+                                imp_prob = self.calculate_implied_probability(odds)
+                                z_score = self.calculate_z_score(imp_prob, imp_probs_no)
                                 unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], "no")
                                 bet_tuple = (
                                     data['game_ID'], bookie, data['Prop_Type'], "no",
                                     data['Player_Name'], "N/A", odds, round(ev, 2),
-                                    round(fair_prob_no, 4), round(self.calculate_implied_probability(odds), 4),
+                                    round(fair_prob_no, 4), round(imp_prob, 4),
                                     round(assumed_overround_no, 4), data['sport_type'],
-                                    data['last_updated_timestamp'], len(bookies_no)
+                                    data['last_updated_timestamp'], len(bookies_no),
+                                    round(z_score, 2) if z_score is not None else None
                                 )
                                 if unique_key not in best_bets or ev > best_bets[unique_key][7]:
                                     best_bets[unique_key] = bet_tuple
@@ -501,13 +495,16 @@ class ExpectedValueAnalyzer:
                             continue
                         ev = self.calculate_expected_value(odds, fair_prob_over)
                         if ev > self.ev_target:
+                            imp_prob = self.calculate_implied_probability(odds)
+                            z_score = self.calculate_z_score(imp_prob, imp_probs_over)
                             unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], data['Betting_Point'], "over")
                             bet_tuple = (
                                 data['game_ID'], bookie, data['Prop_Type'], "over",
                                 data['Player_Name'], data['Betting_Point'], odds,
-                                round(ev, 2), round(fair_prob_over, 4), round(self.calculate_implied_probability(odds), 4),
+                                round(ev, 2), round(fair_prob_over, 4), round(imp_prob, 4),
                                 round(market_overround, 4), data['sport_type'],
-                                data['last_updated_timestamp'], len(bookies_over)
+                                data['last_updated_timestamp'], len(bookies_over),
+                                round(z_score, 2) if z_score is not None else None
                             )
                             if unique_key not in best_bets or ev > best_bets[unique_key][7]:
                                 best_bets[unique_key] = bet_tuple
@@ -517,13 +514,16 @@ class ExpectedValueAnalyzer:
                             continue
                         ev = self.calculate_expected_value(odds, fair_prob_under)
                         if ev > self.ev_target:
+                            imp_prob = self.calculate_implied_probability(odds)
+                            z_score = self.calculate_z_score(imp_prob, imp_probs_under)
                             unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], data['Betting_Point'], "under")
                             bet_tuple = (
                                 data['game_ID'], bookie, data['Prop_Type'], "under",
                                 data['Player_Name'], data['Betting_Point'], odds,
-                                round(ev, 2), round(fair_prob_under, 4), round(self.calculate_implied_probability(odds), 4),
+                                round(ev, 2), round(fair_prob_under, 4), round(imp_prob, 4),
                                 round(market_overround, 4), data['sport_type'],
-                                data['last_updated_timestamp'], len(bookies_under)
+                                data['last_updated_timestamp'], len(bookies_under),
+                                round(z_score, 2) if z_score is not None else None
                             )
                             if unique_key not in best_bets or ev > best_bets[unique_key][7]:
                                 best_bets[unique_key] = bet_tuple
@@ -542,13 +542,16 @@ class ExpectedValueAnalyzer:
                                 continue
                             ev = self.calculate_expected_value(odds, fair_prob_over)
                             if ev > self.ev_target:
+                                imp_prob = self.calculate_implied_probability(odds)
+                                z_score = self.calculate_z_score(imp_prob, imp_probs_over)
                                 unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], data['Betting_Point'], "over")
                                 bet_tuple = (
                                     data['game_ID'], bookie, data['Prop_Type'], "over",
                                     data['Player_Name'], data['Betting_Point'], odds,
-                                    round(ev, 2), round(fair_prob_over, 4), round(self.calculate_implied_probability(odds), 4),
+                                    round(ev, 2), round(fair_prob_over, 4), round(imp_prob, 4),
                                     round(assumed_overround_over, 4), data['sport_type'],
-                                    data['last_updated_timestamp'], len(bookies_over)
+                                    data['last_updated_timestamp'], len(bookies_over),
+                                    round(z_score, 2) if z_score is not None else None
                                 )
                                 if unique_key not in best_bets or ev > best_bets[unique_key][7]:
                                     best_bets[unique_key] = bet_tuple
@@ -567,13 +570,16 @@ class ExpectedValueAnalyzer:
                                 continue
                             ev = self.calculate_expected_value(odds, fair_prob_under)
                             if ev > self.ev_target:
+                                imp_prob = self.calculate_implied_probability(odds)
+                                z_score = self.calculate_z_score(imp_prob, imp_probs_under)
                                 unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], data['Betting_Point'], "under")
                                 bet_tuple = (
                                     data['game_ID'], bookie, data['Prop_Type'], "under",
                                     data['Player_Name'], data['Betting_Point'], odds,
-                                    round(ev, 2), round(fair_prob_under, 4), round(self.calculate_implied_probability(odds), 4),
+                                    round(ev, 2), round(fair_prob_under, 4), round(imp_prob, 4),
                                     round(assumed_overround_under, 4), data['sport_type'],
-                                    data['last_updated_timestamp'], len(bookies_under)
+                                    data['last_updated_timestamp'], len(bookies_under),
+                                    round(z_score, 2) if z_score is not None else None
                                 )
                                 if unique_key not in best_bets or ev > best_bets[unique_key][7]:
                                     best_bets[unique_key] = bet_tuple
