@@ -14,7 +14,7 @@ export const formatTimestamp = (timestamp) => {
 
 export const getColorForBookie = (bookie) => {
   const colors = {
-    DraftKings: "#28a745",
+    DraftKings: "#20a945",
     FanDuel: "#F33711",
     "MyBookie.ag": "#1e88e5",
     BetRivers: "#EB6BE8",
@@ -23,8 +23,15 @@ export const getColorForBookie = (bookie) => {
     "LowVig.ag": "#9A837E",
     "BetOnline.ag": "#DFDA03",
     Bovada: "#000000",
-    BetUS: "#FFA500",
+    BetUS: "#FFA100",
     Fanatics: "#ADFF5B",
+    "ESPN BET": "#C8102E",
+    Fliff: "#008080",
+    "Hard Rock Bet": "#FFD700",
+    "Wind Creek": "#228B22",
+    "Bally Bet": "#FF1493",
+    betPARX: "#E6E6FA",
+    BetAnySports: "#FF7F90",
   };
 
   return colors[bookie] || "#000000"; // Default to black if bookie color is not defined
@@ -32,8 +39,8 @@ export const getColorForBookie = (bookie) => {
 
 export const getColorForBookieProp = (bookie) => {
   const colors = {
-    DraftKings: "#28a745",
-    FanDuel: "#F33711",
+    DraftKings: "#20a945",
+    FanDuel: "#F76A5E",
     "MyBookie.ag": "#1e88e5",
     BetRivers: "#EB6BE8",
     Caesars: "#31DFF7",
@@ -41,9 +48,16 @@ export const getColorForBookieProp = (bookie) => {
     "LowVig.ag": "#9A837E",
     "BetOnline.ag": "#DFDA03",
     Bovada: "#000000",
-    BetUS: "#FFA500",
+    BetUS: "#FFA100",
     Fanatics: "#ADFF5B",
-    WilliamHill: "#1B02AE",
+    "ESPN BET": "#C8102E",
+    Fliff: "#008080",
+    "Hard Rock Bet": "#FFD700",
+    "Wind Creek": "#228B22",
+    "Bally Bet": "#FF1493",
+    betPARX: "#E6E6FA",
+    BetAnySports: "#FF7F90",
+    WilliamHill: "#AFC4A4",
   };
 
   // Bookie name mappings for props
@@ -56,6 +70,10 @@ export const getColorForBookieProp = (bookie) => {
     bovada: "Bovada",
     betus: "BetUS",
     betonlineag: "BetOnline.ag", // Map lowercase to correct format
+    espnbet: "ESPN BET",
+    espnbet: "ESPN BET",
+    ballybet: "Bally Bet",
+    hardrockbet: "Hard Rock Bet",
   };
 
   // Normalize the bookie name for color matching
