@@ -1,4 +1,5 @@
 import logging
+from statistics import median
 
 logger = logging.getLogger(__name__)
 
@@ -11,16 +12,11 @@ class ExpectedValueAnalyzer:
         self.ev_target = ev_target
         self.odds_max = 50000
         self.inflate_prop = {'player_goal_scorer_anytime', 'batter_home_runs', 'player_goal_scorer_first'}
-        self.inflate_rate = 0.085
+        self.inflate_rate = 0.10  # Inflation rate for bets without both sides
+        self.z_score_limit = -1.5  # Z-score threshold for filtering bets
         self.multi_outcome_props = {
             'player_1st_td', 'player_last_td', 'player_first_basket', 'player_first_team_basket',
             'player_goal_scorer_first', 'player_goal_scorer_last', 'batter_first_home_run'
-        }
-        self.overround_by_range = {
-            (-float('inf'), -300): [], (-300, -200): [], (-200, -100): [], (-100, 150): [],
-            (150, 250): [], (250, 350): [], (350, 500): [], (500, 650): [],
-            (650, 800): [], (800, 1200): [], (1200, 2000): [], (2000, 3000): [],
-            (3000, float('inf')): []
         }
 
     def calculate_implied_probability(self, odds):
@@ -41,66 +37,53 @@ class ExpectedValueAnalyzer:
             payout = (100 / abs(odds)) * bet_amount
         return (fair_probability * payout) - ((1 - fair_probability) * bet_amount)
 
-    def get_assumed_overround(self, odds):
-        """Determine the static assumed overround based on the median odds tier."""
-        if odds <= -300: return 1.0212
-        elif odds <= -200: return 1.0311
-        elif odds <= -100: return 1.0397
-        elif odds <= 150: return 1.0622
-        elif odds <= 300: return 1.0997
-        elif odds <= 500: return 1.1945
-        elif odds <= 800: return 1.3997
-        elif odds <= 1200: return 1.4989
-        elif odds <= 2000: return 1.625
-        elif odds <= 3000: return 1.775
-        else: return 3
-
-    def get_odds_range(self, odds):
-        """Determine the odds range for a given odds value."""
-        if odds <= -300: return (-float('inf'), -300)
-        elif odds <= -200: return (-300, -200)
-        elif odds <= -100: return (-200, -100)
-        elif odds <= 150: return (-100, 150)
-        elif odds <= 250: return (150, 250)
-        elif odds <= 350: return (250, 350)
-        elif odds <= 500: return (350, 500)
-        elif odds <= 650: return (500, 650)
-        elif odds <= 800: return (650, 800)
-        elif odds <= 1200: return (800, 1200)
-        elif odds <= 2000: return (1200, 2000)
-        elif odds <= 3000: return (2000, 3000)
-        else: return (3000, float('inf'))
-
-    def get_median_assumed_overround(self, median_odds, prop_type):
-        """Get the median assumed overround for the given median odds, inflating for specific props if necessary."""
-        range_key = self.get_odds_range(median_odds)
-        logger.debug(f"Median odds: {median_odds}, Range key: {range_key}")
-        overrounds = self.overround_by_range.get(range_key, [])
-        if overrounds:
-            sorted_overrounds = sorted(overrounds)
-            n = len(sorted_overrounds)
-            mid = n // 2
-            overround = (sorted_overrounds[mid - 1] + sorted_overrounds[mid]) / 2 if n % 2 == 0 else sorted_overrounds[mid]
-        else:
-            overround = self.get_assumed_overround(median_odds)
-        if overround is not None and prop_type in self.inflate_prop:
-            overround *= (1 + self.inflate_rate)
-        return overround
-
     def calculate_z_score(self, imp_prob, imp_probs_list):
         """Calculate the z-score of an implied probability given a list of implied probabilities."""
-        if len(imp_probs_list) < 2:  # Need at least 2 for standard deviation
+        if len(imp_probs_list) < 2:
             return None
         mean_imp = sum(imp_probs_list) / len(imp_probs_list)
         variance = sum((p - mean_imp) ** 2 for p in imp_probs_list) / len(imp_probs_list)
         std_imp = variance ** 0.5
-        if std_imp == 0:  # Avoid division by zero
+        if std_imp == 0:
             return 0
         return (imp_prob - mean_imp) / std_imp
 
+    def calculate_estimated_ev(self, data, side, overround_est, best_bets):
+        """Calculate EV for a single outcome prop side using an estimated overround."""
+        outcomes = data['outcomes']
+        if side not in outcomes or len(outcomes[side]) < self.min_bookies:
+            return
+
+        for bookie, odds in outcomes[side]:
+            if odds is None or odds > self.odds_max:
+                continue
+            imp_prob = self.calculate_implied_probability(odds)
+            if imp_prob is None:
+                continue
+            fair_prob = imp_prob / overround_est
+            ev = self.calculate_expected_value(odds, fair_prob)
+            if ev > self.ev_target:
+                imp_probs = [self.calculate_implied_probability(o) for _, o in outcomes[side] if o is not None]
+                z_score = self.calculate_z_score(imp_prob, imp_probs)
+                if z_score is not None and z_score <= self.z_score_limit:
+                    if side in ["yes", "no"]:
+                        unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], side)
+                        betting_point = "N/A"
+                    else:  # "over" or "under"
+                        unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], data['Betting_Point'], side)
+                        betting_point = data['Betting_Point']
+                    bet_tuple = (
+                        data['game_ID'], bookie, data['Prop_Type'], side,
+                        data['Player_Name'], betting_point, odds, round(ev, 2),
+                        round(fair_prob, 4), round(imp_prob, 4), round(fair_prob, 4),
+                        data['sport_type'], data['last_updated_timestamp'], len(outcomes[side]),
+                        round(z_score, 2) if z_score is not None else None
+                    )
+                    if unique_key not in best_bets or ev > best_bets[unique_key][7]:
+                        best_bets[unique_key] = bet_tuple
 
     def analyze_ml(self):
-        """Analyze moneyline bets to find all +EV bets with max EV, returning a list of tuples."""
+        """Analyze moneyline bets to find all +EV bets, returning a list of tuples."""
         logger.debug("Starting moneyline analysis...")
         game_dict = {}
         for line in self.bet_lines:
@@ -125,57 +108,56 @@ class ExpectedValueAnalyzer:
         for game_id, data in game_dict.items():
             team1_bookies = set(bookie for bookie, _ in data['team1_odds'])
             team2_bookies = set(bookie for bookie, _ in data['team2_odds'])
-            num_bookies_team1 = len(team1_bookies)
-            num_bookies_team2 = len(team2_bookies)
-            if num_bookies_team1 < self.min_bookies or num_bookies_team2 < self.min_bookies:
-                logger.info(f"Skipping game_ID {game_id}: Only {num_bookies_team1} bookies for {data['teams'][0]} and {num_bookies_team2} for {data['teams'][1]}")
+            if len(team1_bookies) < self.min_bookies or len(team2_bookies) < self.min_bookies:
+                logger.info(f"Skipping game_ID {game_id}: Insufficient bookies")
                 continue
 
-            imp_probs_team1 = [self.calculate_implied_probability(odds) for _, odds in data['team1_odds']]
-            imp_probs_team2 = [self.calculate_implied_probability(odds) for _, odds in data['team2_odds']]
-            avg_imp_prob_team1 = sum(imp_probs_team1) / len(imp_probs_team1)
-            avg_imp_prob_team2 = sum(imp_probs_team2) / len(imp_probs_team2)
-            market_overround = avg_imp_prob_team1 + avg_imp_prob_team2
-            fair_prob_team1 = avg_imp_prob_team1 / market_overround if market_overround > 0 else 0
-            fair_prob_team2 = avg_imp_prob_team2 / market_overround if market_overround > 0 else 0
+            no_vig_probs_team1 = []
+            for i in range(len(data['team1_odds'])):
+                bookie1, odds1 = data['team1_odds'][i]
+                bookie2, odds2 = data['team2_odds'][i]
+                if bookie1 != bookie2:
+                    logger.warning(f"Mismatch in bookies for game_ID {game_id}")
+                    continue
+                imp_prob1 = self.calculate_implied_probability(odds1)
+                imp_prob2 = self.calculate_implied_probability(odds2)
+                if imp_prob1 is None or imp_prob2 is None:
+                    continue
+                overround = imp_prob1 + imp_prob2
+                if overround > 0:
+                    no_vig_prob_team1 = imp_prob1 / overround
+                    no_vig_probs_team1.append(no_vig_prob_team1)
 
-            best_ev_team1 = None
-            best_bookies_team1 = []
+            if not no_vig_probs_team1:
+                logger.info(f"Skipping game_ID {game_id}: No valid no-vig probabilities")
+                continue
+
+            true_prob_team1 = median(no_vig_probs_team1)
+            true_prob_team2 = 1 - true_prob_team1
+
             for bookie, odds in data['team1_odds']:
-                ev = self.calculate_expected_value(odds, fair_prob_team1)
-                if best_ev_team1 is None or ev > best_ev_team1:
-                    best_ev_team1 = ev
-                    best_bookies_team1 = [(bookie, odds)]
-                elif ev == best_ev_team1:
-                    best_bookies_team1.append((bookie, odds))
-
-            best_ev_team2 = None
-            best_bookies_team2 = []
-            for bookie, odds in data['team2_odds']:
-                ev = self.calculate_expected_value(odds, fair_prob_team2)
-                if best_ev_team2 is None or ev > best_ev_team2:
-                    best_ev_team2 = ev
-                    best_bookies_team2 = [(bookie, odds)]
-                elif ev == best_ev_team2:
-                    best_bookies_team2.append((bookie, odds))
-
-            if best_ev_team1 is not None and best_ev_team1 > self.ev_target:
-                for bookie, odds in best_bookies_team1:
-                    bookie_imp_prob = self.calculate_implied_probability(odds)
+                if odds is None:
+                    continue
+                ev = self.calculate_expected_value(odds, true_prob_team1)
+                if ev > self.ev_target:
+                    imp_prob = self.calculate_implied_probability(odds)
                     self.results.append((
                         data['game_ID'], bookie, data['Matchup_Type'], data['teams'][0], odds,
-                        round(best_ev_team1, 2), round(fair_prob_team1, 4), round(bookie_imp_prob, 4),
-                        round(market_overround, 4), data['sport_type'], data['event_timestamp'],
+                        round(ev, 2), round(true_prob_team1, 4), round(imp_prob, 4),
+                        round(median(no_vig_probs_team1), 4), data['sport_type'], data['event_timestamp'],
                         data['last_updated_timestamp']
                     ))
 
-            if best_ev_team2 is not None and best_ev_team2 > self.ev_target:
-                for bookie, odds in best_bookies_team2:
-                    bookie_imp_prob = self.calculate_implied_probability(odds)
+            for bookie, odds in data['team2_odds']:
+                if odds is None:
+                    continue
+                ev = self.calculate_expected_value(odds, true_prob_team2)
+                if ev > self.ev_target:
+                    imp_prob = self.calculate_implied_probability(odds)
                     self.results.append((
                         data['game_ID'], bookie, data['Matchup_Type'], data['teams'][1], odds,
-                        round(best_ev_team2, 2), round(fair_prob_team2, 4), round(bookie_imp_prob, 4),
-                        round(market_overround, 4), data['sport_type'], data['event_timestamp'],
+                        round(ev, 2), round(true_prob_team2, 4), round(imp_prob, 4),
+                        round(median(no_vig_probs_team1), 4), data['sport_type'], data['event_timestamp'],
                         data['last_updated_timestamp']
                     ))
 
@@ -244,6 +226,41 @@ class ExpectedValueAnalyzer:
 
         logger.info(f"Grouped {len(multi_outcome_dict)} multi-outcome props and {len(single_outcome_dict)} single-outcome props")
 
+        # Collect overrounds for median vig calculation
+        all_overrounds = []
+        for key, data in single_outcome_dict.items():
+            outcomes = data['outcomes']
+            if "yes" in outcomes and "no" in outcomes:
+                bookies_both = set(bookie for bookie, _ in outcomes["yes"]) & set(bookie for bookie, _ in outcomes["no"])
+                for bookie in bookies_both:
+                    odds_yes = next(odds for b, odds in outcomes["yes"] if b == bookie)
+                    odds_no = next(odds for b, odds in outcomes["no"] if b == bookie)
+                    imp_prob_yes = self.calculate_implied_probability(odds_yes)
+                    imp_prob_no = self.calculate_implied_probability(odds_no)
+                    if imp_prob_yes is not None and imp_prob_no is not None:
+                        overround = imp_prob_yes + imp_prob_no
+                        if overround > 0:
+                            all_overrounds.append(overround)
+            elif "over" in outcomes and "under" in outcomes:
+                bookies_both = set(bookie for bookie, _ in outcomes["over"]) & set(bookie for bookie, _ in outcomes["under"])
+                for bookie in bookies_both:
+                    odds_over = next(odds for b, odds in outcomes["over"] if b == bookie)
+                    odds_under = next(odds for b, odds in outcomes["under"] if b == bookie)
+                    imp_prob_over = self.calculate_implied_probability(odds_over)
+                    imp_prob_under = self.calculate_implied_probability(odds_under)
+                    if imp_prob_over is not None and imp_prob_under is not None:
+                        overround = imp_prob_over + imp_prob_under
+                        if overround > 0:
+                            all_overrounds.append(overround)
+
+        # Compute estimated overround
+        if all_overrounds:
+            median_overround = median(all_overrounds)
+            overround_est = median_overround + self.inflate_rate  # Use self.inflate_rate for bets without both sides
+        else:
+            logger.warning("No overrounds collected; using default overround_est")
+            overround_est = 1.15 + self.inflate_rate  # Adjusted default to use self.inflate_rate
+
         # Analyze multi-outcome props
         for game_key, game_data in multi_outcome_dict.items():
             players = game_data['players']
@@ -254,29 +271,28 @@ class ExpectedValueAnalyzer:
                 logger.debug(f"Skipping {game_key}: Only {len(all_bookies)} bookies")
                 continue
 
-            total_imp_prob = 0
-            player_avg_probs = {}
+            player_median_probs = {}
             for player_name, odds_list in players.items():
                 odds = [o for _, o in odds_list if o is not None]
                 if not odds:
                     continue
-                imp_probs = [self.calculate_implied_probability(o) for o in odds]
-                avg_imp_prob = sum(imp_probs) / len(imp_probs)
-                player_avg_probs[player_name] = (avg_imp_prob, odds_list)
-                total_imp_prob += avg_imp_prob
+                imp_probs = [self.calculate_implied_probability(o) for o in odds if self.calculate_implied_probability(o) is not None]
+                if imp_probs:
+                    median_imp_prob = median(imp_probs)
+                    player_median_probs[player_name] = (median_imp_prob, odds_list)
 
-            market_overround = total_imp_prob
+            market_overround = sum(median_imp_prob for median_imp_prob, _ in player_median_probs.values())
             if game_data['Prop_Type'] in self.inflate_prop:
                 market_overround *= (1 + self.inflate_rate)
             if market_overround <= 0:
                 logger.warning(f"Invalid market overround {market_overround} for {game_key}")
                 continue
 
-            for player_name, (avg_imp_prob, odds_list) in player_avg_probs.items():
+            for player_name, (median_imp_prob, odds_list) in player_median_probs.items():
                 bookies = set(bookie for bookie, _ in odds_list)
                 if len(bookies) < self.min_bookies:
                     continue
-                fair_prob = avg_imp_prob / market_overround
+                fair_prob = median_imp_prob / market_overround if market_overround > 0 else 0
                 imp_probs = [self.calculate_implied_probability(o) for _, o in odds_list if o is not None]
                 for bookie, odds in odds_list:
                     if odds is None or odds > self.odds_max:
@@ -285,304 +301,166 @@ class ExpectedValueAnalyzer:
                     if ev > self.ev_target:
                         imp_prob = self.calculate_implied_probability(odds)
                         z_score = self.calculate_z_score(imp_prob, imp_probs)
-                        unique_key = (game_data['game_ID'], game_data['Prop_Type'], player_name)
-                        bet_tuple = (
-                            game_data['game_ID'], bookie, game_data['Prop_Type'], "yes",
-                            player_name, "N/A", odds, round(ev, 2), round(fair_prob, 4),
-                            round(imp_prob, 4), round(market_overround, 4),
-                            game_data['sport_type'], game_data['last_updated_timestamp'], len(bookies),
-                            round(z_score, 2) if z_score is not None else None
-                        )
-                        if unique_key not in best_bets or ev > best_bets[unique_key][7]:
-                            best_bets[unique_key] = bet_tuple
-
-        # Pass 1: Collect overrounds for single-outcome props
-        for key, data in single_outcome_dict.items():
-            outcomes = data['outcomes']
-            if "yes" in outcomes or "no" in outcomes:
-                bookies_yes = set(bookie for bookie, _ in outcomes.get("yes", []))
-                bookies_no = set(bookie for bookie, _ in outcomes.get("no", []))
-                odds_yes = [odds for _, odds in outcomes.get("yes", []) if odds is not None]
-                odds_no = [odds for _, odds in outcomes.get("no", []) if odds is not None]
-                imp_probs_yes = [self.calculate_implied_probability(o) for o in odds_yes] if odds_yes else []
-                imp_probs_no = [self.calculate_implied_probability(o) for o in odds_no] if odds_no else []
-                avg_imp_prob_yes = sum(imp_probs_yes) / len(imp_probs_yes) if imp_probs_yes else 0
-                avg_imp_prob_no = sum(imp_probs_no) / len(imp_probs_no) if imp_probs_no else 0
-
-                if ("yes" in outcomes and "no" in outcomes and
-                    len(bookies_yes) >= self.min_bookies and len(bookies_no) >= self.min_bookies):
-                    market_overround = avg_imp_prob_yes + avg_imp_prob_no
-                    if data['Prop_Type'] in self.inflate_prop:
-                        market_overround *= (1 + self.inflate_rate)
-                    if market_overround > 0:
-                        all_odds = odds_yes + odds_no
-                        if all_odds:
-                            sorted_odds = sorted(all_odds)
-                            mid = len(sorted_odds) // 2
-                            median_odds = (sorted_odds[mid - 1] + sorted_odds[mid]) / 2 if len(sorted_odds) % 2 == 0 else sorted_odds[mid]
-                            range_key = self.get_odds_range(median_odds)
-                            self.overround_by_range[range_key].append(market_overround)
-
-            elif "over" in outcomes or "under" in outcomes:
-                bookies_over = set(bookie for bookie, _ in outcomes.get("over", []))
-                bookies_under = set(bookie for bookie, _ in outcomes.get("under", []))
-                odds_over = [odds for _, odds in outcomes.get("over", []) if odds is not None]
-                odds_under = [odds for _, odds in outcomes.get("under", []) if odds is not None]
-                imp_probs_over = [self.calculate_implied_probability(o) for o in odds_over] if odds_over else []
-                imp_probs_under = [self.calculate_implied_probability(o) for o in odds_under] if odds_under else []
-                avg_imp_prob_over = sum(imp_probs_over) / len(imp_probs_over) if imp_probs_over else 0
-                avg_imp_prob_under = sum(imp_probs_under) / len(imp_probs_under) if imp_probs_under else 0
-
-                if ("over" in outcomes and "under" in outcomes and
-                    len(bookies_over) >= self.min_bookies and len(bookies_under) >= self.min_bookies):
-                    market_overround = avg_imp_prob_over + avg_imp_prob_under
-                    if data['Prop_Type'] in self.inflate_prop:
-                        market_overround *= (1 + self.inflate_rate)
-                    if market_overround > 0:
-                        all_odds = odds_over + odds_under
-                        if all_odds:
-                            sorted_odds = sorted(all_odds)
-                            mid = len(sorted_odds) // 2
-                            median_odds = (sorted_odds[mid - 1] + sorted_odds[mid]) / 2 if len(sorted_odds) % 2 == 0 else sorted_odds[mid]
-                            range_key = self.get_odds_range(median_odds)
-                            self.overround_by_range[range_key].append(market_overround)
-
-        # Pass 2: Analyze single-outcome props
-        for key, data in single_outcome_dict.items():
-            outcomes = data['outcomes']
-            if "yes" in outcomes or "no" in outcomes:
-                bookies_yes = set(bookie for bookie, _ in outcomes.get("yes", []))
-                bookies_no = set(bookie for bookie, _ in outcomes.get("no", []))
-                odds_yes = [odds for _, odds in outcomes.get("yes", []) if odds is not None]
-                odds_no = [odds for _, odds in outcomes.get("no", []) if odds is not None]
-                imp_probs_yes = [self.calculate_implied_probability(o) for o in odds_yes] if odds_yes else []
-                imp_probs_no = [self.calculate_implied_probability(o) for o in odds_no] if odds_no else []
-                avg_imp_prob_yes = sum(imp_probs_yes) / len(imp_probs_yes) if imp_probs_yes else 0
-                avg_imp_prob_no = sum(imp_probs_no) / len(imp_probs_no) if imp_probs_no else 0
-
-                both_sides_sufficient = ("yes" in outcomes and "no" in outcomes and
-                                        len(bookies_yes) >= self.min_bookies and len(bookies_no) >= self.min_bookies)
-
-                if both_sides_sufficient:
-                    market_overround = avg_imp_prob_yes + avg_imp_prob_no
-                    if data['Prop_Type'] in self.inflate_prop:
-                        market_overround *= (1 + self.inflate_rate)
-                    if market_overround <= 0:
-                        logger.warning(f"Invalid market overround {market_overround} for {key}")
-                        continue
-                    fair_prob_yes = avg_imp_prob_yes / market_overround
-                    fair_prob_no = avg_imp_prob_no / market_overround
-
-                    for bookie, odds in outcomes.get("yes", []):
-                        if odds is None or odds > self.odds_max:
-                            continue
-                        ev = self.calculate_expected_value(odds, fair_prob_yes)
-                        if ev > self.ev_target:
-                            imp_prob = self.calculate_implied_probability(odds)
-                            z_score = self.calculate_z_score(imp_prob, imp_probs_yes)
-                            unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], "yes")
+                        if z_score is not None and z_score <= self.z_score_limit:
+                            unique_key = (game_data['game_ID'], game_data['Prop_Type'], player_name)
                             bet_tuple = (
-                                data['game_ID'], bookie, data['Prop_Type'], "yes",
-                                data['Player_Name'], "N/A", odds, round(ev, 2),
-                                round(fair_prob_yes, 4), round(imp_prob, 4),
-                                round(market_overround, 4), data['sport_type'],
-                                data['last_updated_timestamp'], len(bookies_yes),
+                                game_data['game_ID'], bookie, game_data['Prop_Type'], "yes",
+                                player_name, "N/A", odds, round(ev, 2), round(fair_prob, 4),
+                                round(imp_prob, 4), round(market_overround, 4),
+                                game_data['sport_type'], game_data['last_updated_timestamp'], len(bookies),
                                 round(z_score, 2) if z_score is not None else None
                             )
                             if unique_key not in best_bets or ev > best_bets[unique_key][7]:
                                 best_bets[unique_key] = bet_tuple
 
-                    for bookie, odds in outcomes.get("no", []):
-                        if odds is None or odds > self.odds_max:
+        # Analyze single-outcome props
+        for key, data in single_outcome_dict.items():
+            outcomes = data['outcomes']
+            if "yes" in outcomes or "no" in outcomes:
+                if "yes" in outcomes and "no" in outcomes:
+                    bookies_both = set(bookie for bookie, _ in outcomes["yes"]) & set(bookie for bookie, _ in outcomes["no"])
+                    if len(bookies_both) >= self.min_bookies:
+                        # Accurate method
+                        no_vig_probs_yes = []
+                        for bookie in bookies_both:
+                            odds_yes = next(odds for b, odds in outcomes["yes"] if b == bookie)
+                            odds_no = next(odds for b, odds in outcomes["no"] if b == bookie)
+                            imp_prob_yes = self.calculate_implied_probability(odds_yes)
+                            imp_prob_no = self.calculate_implied_probability(odds_no)
+                            if imp_prob_yes is None or imp_prob_no is None:
+                                continue
+                            overround = imp_prob_yes + imp_prob_no
+                            if overround > 0:
+                                no_vig_prob_yes = imp_prob_yes / overround
+                                no_vig_probs_yes.append(no_vig_prob_yes)
+                        if not no_vig_probs_yes:
+                            logger.debug(f"Skipping {key}: No valid no-vig probabilities")
                             continue
-                        ev = self.calculate_expected_value(odds, fair_prob_no)
-                        if ev > self.ev_target:
-                            imp_prob = self.calculate_implied_probability(odds)
-                            z_score = self.calculate_z_score(imp_prob, imp_probs_no)
-                            unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], "no")
-                            bet_tuple = (
-                                data['game_ID'], bookie, data['Prop_Type'], "no",
-                                data['Player_Name'], "N/A", odds, round(ev, 2),
-                                round(fair_prob_no, 4), round(imp_prob, 4),
-                                round(market_overround, 4), data['sport_type'],
-                                data['last_updated_timestamp'], len(bookies_no),
-                                round(z_score, 2) if z_score is not None else None
-                            )
-                            if unique_key not in best_bets or ev > best_bets[unique_key][7]:
-                                best_bets[unique_key] = bet_tuple
-                else:
-                    if len(bookies_yes) >= self.min_bookies:
-                        sorted_odds_yes = sorted(odds_yes)
-                        mid = len(sorted_odds_yes) // 2
-                        median_odds_yes = (sorted_odds_yes[mid - 1] + sorted_odds_yes[mid]) / 2 if len(sorted_odds_yes) % 2 == 0 else sorted_odds_yes[mid]
-                        assumed_overround_yes = self.get_median_assumed_overround(median_odds_yes, data['Prop_Type'])
-                        if assumed_overround_yes is None:
-                            logger.warning(f"Invalid median odds {median_odds_yes} for {key}")
-                            continue
-                        fair_prob_yes = avg_imp_prob_yes / assumed_overround_yes
+                        true_prob_yes = median(no_vig_probs_yes)
+                        true_prob_no = 1 - true_prob_yes
+
                         for bookie, odds in outcomes["yes"]:
                             if odds is None or odds > self.odds_max:
                                 continue
-                            ev = self.calculate_expected_value(odds, fair_prob_yes)
+                            ev = self.calculate_expected_value(odds, true_prob_yes)
                             if ev > self.ev_target:
                                 imp_prob = self.calculate_implied_probability(odds)
+                                imp_probs_yes = [self.calculate_implied_probability(o) for _, o in outcomes["yes"] if o is not None]
                                 z_score = self.calculate_z_score(imp_prob, imp_probs_yes)
-                                unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], "yes")
-                                bet_tuple = (
-                                    data['game_ID'], bookie, data['Prop_Type'], "yes",
-                                    data['Player_Name'], "N/A", odds, round(ev, 2),
-                                    round(fair_prob_yes, 4), round(imp_prob, 4),
-                                    round(assumed_overround_yes, 4), data['sport_type'],
-                                    data['last_updated_timestamp'], len(bookies_yes),
-                                    round(z_score, 2) if z_score is not None else None
-                                )
-                                if unique_key not in best_bets or ev > best_bets[unique_key][7]:
-                                    best_bets[unique_key] = bet_tuple
+                                if z_score is not None and z_score <= self.z_score_limit:
+                                    unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], "yes")
+                                    bet_tuple = (
+                                        data['game_ID'], bookie, data['Prop_Type'], "yes",
+                                        data['Player_Name'], "N/A", odds, round(ev, 2),
+                                        round(true_prob_yes, 4), round(imp_prob, 4),
+                                        round(median(no_vig_probs_yes), 4), data['sport_type'],
+                                        data['last_updated_timestamp'], len(bookies_both),
+                                        round(z_score, 2) if z_score is not None else None
+                                    )
+                                    if unique_key not in best_bets or ev > best_bets[unique_key][7]:
+                                        best_bets[unique_key] = bet_tuple
 
-                    if len(bookies_no) >= self.min_bookies:
-                        sorted_odds_no = sorted(odds_no)
-                        mid = len(sorted_odds_no) // 2
-                        median_odds_no = (sorted_odds_no[mid - 1] + sorted_odds_no[mid]) / 2 if len(sorted_odds_no) % 2 == 0 else sorted_odds_no[mid]
-                        assumed_overround_no = self.get_median_assumed_overround(median_odds_no, data['Prop_Type'])
-                        if assumed_overround_no is None:
-                            logger.warning(f"Invalid median odds {median_odds_no} for {key}")
-                            continue
-                        fair_prob_no = avg_imp_prob_no / assumed_overround_no
                         for bookie, odds in outcomes["no"]:
                             if odds is None or odds > self.odds_max:
                                 continue
-                            ev = self.calculate_expected_value(odds, fair_prob_no)
+                            ev = self.calculate_expected_value(odds, true_prob_no)
                             if ev > self.ev_target:
                                 imp_prob = self.calculate_implied_probability(odds)
+                                imp_probs_no = [self.calculate_implied_probability(o) for _, o in outcomes["no"] if o is not None]
                                 z_score = self.calculate_z_score(imp_prob, imp_probs_no)
-                                unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], "no")
-                                bet_tuple = (
-                                    data['game_ID'], bookie, data['Prop_Type'], "no",
-                                    data['Player_Name'], "N/A", odds, round(ev, 2),
-                                    round(fair_prob_no, 4), round(imp_prob, 4),
-                                    round(assumed_overround_no, 4), data['sport_type'],
-                                    data['last_updated_timestamp'], len(bookies_no),
-                                    round(z_score, 2) if z_score is not None else None
-                                )
-                                if unique_key not in best_bets or ev > best_bets[unique_key][7]:
-                                    best_bets[unique_key] = bet_tuple
+                                if z_score is not None and z_score <= self.z_score_limit:
+                                    unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], "no")
+                                    bet_tuple = (
+                                        data['game_ID'], bookie, data['Prop_Type'], "no",
+                                        data['Player_Name'], "N/A", odds, round(ev, 2),
+                                        round(true_prob_no, 4), round(imp_prob, 4),
+                                        round(median(no_vig_probs_yes), 4), data['sport_type'],
+                                        data['last_updated_timestamp'], len(bookies_both),
+                                        round(z_score, 2) if z_score is not None else None
+                                    )
+                                    if unique_key not in best_bets or ev > best_bets[unique_key][7]:
+                                        best_bets[unique_key] = bet_tuple
+                    else:
+                        # Estimated method when both sides exist but not enough bookies
+                        self.calculate_estimated_ev(data, "yes", overround_est, best_bets)
+                        self.calculate_estimated_ev(data, "no", overround_est, best_bets)
+                elif "yes" in outcomes:
+                    self.calculate_estimated_ev(data, "yes", overround_est, best_bets)
+                elif "no" in outcomes:
+                    self.calculate_estimated_ev(data, "no", overround_est, best_bets)
 
             elif "over" in outcomes or "under" in outcomes:
-                bookies_over = set(bookie for bookie, _ in outcomes.get("over", []))
-                bookies_under = set(bookie for bookie, _ in outcomes.get("under", []))
-                odds_over = [odds for _, odds in outcomes.get("over", []) if odds is not None]
-                odds_under = [odds for _, odds in outcomes.get("under", []) if odds is not None]
-                imp_probs_over = [self.calculate_implied_probability(o) for o in odds_over] if odds_over else []
-                imp_probs_under = [self.calculate_implied_probability(o) for o in odds_under] if odds_under else []
-                avg_imp_prob_over = sum(imp_probs_over) / len(imp_probs_over) if imp_probs_over else 0
-                avg_imp_prob_under = sum(imp_probs_under) / len(imp_probs_under) if imp_probs_under else 0
-
-                both_sides_sufficient = ("over" in outcomes and "under" in outcomes and
-                                        len(bookies_over) >= self.min_bookies and len(bookies_under) >= self.min_bookies)
-
-                if both_sides_sufficient:
-                    market_overround = avg_imp_prob_over + avg_imp_prob_under
-                    if data['Prop_Type'] in self.inflate_prop:
-                        market_overround *= (1 + self.inflate_rate)
-                    if market_overround <= 0:
-                        logger.warning(f"Invalid market overround {market_overround} for {key}")
-                        continue
-                    fair_prob_over = avg_imp_prob_over / market_overround
-                    fair_prob_under = avg_imp_prob_under / market_overround
-
-                    for bookie, odds in outcomes.get("over", []):
-                        if odds is None or odds > self.odds_max:
+                if "over" in outcomes and "under" in outcomes:
+                    bookies_both = set(bookie for bookie, _ in outcomes["over"]) & set(bookie for bookie, _ in outcomes["under"])
+                    if len(bookies_both) >= self.min_bookies:
+                        # Accurate method
+                        no_vig_probs_over = []
+                        for bookie in bookies_both:
+                            odds_over = next(odds for b, odds in outcomes["over"] if b == bookie)
+                            odds_under = next(odds for b, odds in outcomes["under"] if b == bookie)
+                            imp_prob_over = self.calculate_implied_probability(odds_over)
+                            imp_prob_under = self.calculate_implied_probability(odds_under)
+                            if imp_prob_over is None or imp_prob_under is None:
+                                continue
+                            overround = imp_prob_over + imp_prob_under
+                            if overround > 0:
+                                no_vig_prob_over = imp_prob_over / overround
+                                no_vig_probs_over.append(no_vig_prob_over)
+                        if not no_vig_probs_over:
+                            logger.debug(f"Skipping {key}: No valid no-vig probabilities")
                             continue
-                        ev = self.calculate_expected_value(odds, fair_prob_over)
-                        if ev > self.ev_target:
-                            imp_prob = self.calculate_implied_probability(odds)
-                            z_score = self.calculate_z_score(imp_prob, imp_probs_over)
-                            unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], data['Betting_Point'], "over")
-                            bet_tuple = (
-                                data['game_ID'], bookie, data['Prop_Type'], "over",
-                                data['Player_Name'], data['Betting_Point'], odds,
-                                round(ev, 2), round(fair_prob_over, 4), round(imp_prob, 4),
-                                round(market_overround, 4), data['sport_type'],
-                                data['last_updated_timestamp'], len(bookies_over),
-                                round(z_score, 2) if z_score is not None else None
-                            )
-                            if unique_key not in best_bets or ev > best_bets[unique_key][7]:
-                                best_bets[unique_key] = bet_tuple
+                        true_prob_over = median(no_vig_probs_over)
+                        true_prob_under = 1 - true_prob_over
 
-                    for bookie, odds in outcomes.get("under", []):
-                        if odds is None or odds > self.odds_max:
-                            continue
-                        ev = self.calculate_expected_value(odds, fair_prob_under)
-                        if ev > self.ev_target:
-                            imp_prob = self.calculate_implied_probability(odds)
-                            z_score = self.calculate_z_score(imp_prob, imp_probs_under)
-                            unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], data['Betting_Point'], "under")
-                            bet_tuple = (
-                                data['game_ID'], bookie, data['Prop_Type'], "under",
-                                data['Player_Name'], data['Betting_Point'], odds,
-                                round(ev, 2), round(fair_prob_under, 4), round(imp_prob, 4),
-                                round(market_overround, 4), data['sport_type'],
-                                data['last_updated_timestamp'], len(bookies_under),
-                                round(z_score, 2) if z_score is not None else None
-                            )
-                            if unique_key not in best_bets or ev > best_bets[unique_key][7]:
-                                best_bets[unique_key] = bet_tuple
-                else:
-                    if len(bookies_over) >= self.min_bookies:
-                        sorted_odds_over = sorted(odds_over)
-                        mid = len(sorted_odds_over) // 2
-                        median_odds_over = (sorted_odds_over[mid - 1] + sorted_odds_over[mid]) / 2 if len(sorted_odds_over) % 2 == 0 else sorted_odds_over[mid]
-                        assumed_overround_over = self.get_median_assumed_overround(median_odds_over, data['Prop_Type'])
-                        if assumed_overround_over is None:
-                            logger.warning(f"Invalid median odds {median_odds_over} for {key}")
-                            continue
-                        fair_prob_over = avg_imp_prob_over / assumed_overround_over
                         for bookie, odds in outcomes["over"]:
                             if odds is None or odds > self.odds_max:
                                 continue
-                            ev = self.calculate_expected_value(odds, fair_prob_over)
+                            ev = self.calculate_expected_value(odds, true_prob_over)
                             if ev > self.ev_target:
                                 imp_prob = self.calculate_implied_probability(odds)
+                                imp_probs_over = [self.calculate_implied_probability(o) for _, o in outcomes["over"] if o is not None]
                                 z_score = self.calculate_z_score(imp_prob, imp_probs_over)
-                                unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], data['Betting_Point'], "over")
-                                bet_tuple = (
-                                    data['game_ID'], bookie, data['Prop_Type'], "over",
-                                    data['Player_Name'], data['Betting_Point'], odds,
-                                    round(ev, 2), round(fair_prob_over, 4), round(imp_prob, 4),
-                                    round(assumed_overround_over, 4), data['sport_type'],
-                                    data['last_updated_timestamp'], len(bookies_over),
-                                    round(z_score, 2) if z_score is not None else None
-                                )
-                                if unique_key not in best_bets or ev > best_bets[unique_key][7]:
-                                    best_bets[unique_key] = bet_tuple
+                                if z_score is not None and z_score <= self.z_score_limit:
+                                    unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], data['Betting_Point'], "over")
+                                    bet_tuple = (
+                                        data['game_ID'], bookie, data['Prop_Type'], "over",
+                                        data['Player_Name'], data['Betting_Point'], odds,
+                                        round(ev, 2), round(true_prob_over, 4), round(imp_prob, 4),
+                                        round(median(no_vig_probs_over), 4), data['sport_type'],
+                                        data['last_updated_timestamp'], len(bookies_both),
+                                        round(z_score, 2) if z_score is not None else None
+                                    )
+                                    if unique_key not in best_bets or ev > best_bets[unique_key][7]:
+                                        best_bets[unique_key] = bet_tuple
 
-                    if len(bookies_under) >= self.min_bookies:
-                        sorted_odds_under = sorted(odds_under)
-                        mid = len(sorted_odds_under) // 2
-                        median_odds_under = (sorted_odds_under[mid - 1] + sorted_odds_under[mid]) / 2 if len(sorted_odds_under) % 2 == 0 else sorted_odds_under[mid]
-                        assumed_overround_under = self.get_median_assumed_overround(median_odds_under, data['Prop_Type'])
-                        if assumed_overround_under is None:
-                            logger.warning(f"Invalid median odds {median_odds_under} for {key}")
-                            continue
-                        fair_prob_under = avg_imp_prob_under / assumed_overround_under
                         for bookie, odds in outcomes["under"]:
                             if odds is None or odds > self.odds_max:
                                 continue
-                            ev = self.calculate_expected_value(odds, fair_prob_under)
+                            ev = self.calculate_expected_value(odds, true_prob_under)
                             if ev > self.ev_target:
                                 imp_prob = self.calculate_implied_probability(odds)
+                                imp_probs_under = [self.calculate_implied_probability(o) for _, o in outcomes["under"] if o is not None]
                                 z_score = self.calculate_z_score(imp_prob, imp_probs_under)
-                                unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], data['Betting_Point'], "under")
-                                bet_tuple = (
-                                    data['game_ID'], bookie, data['Prop_Type'], "under",
-                                    data['Player_Name'], data['Betting_Point'], odds,
-                                    round(ev, 2), round(fair_prob_under, 4), round(imp_prob, 4),
-                                    round(assumed_overround_under, 4), data['sport_type'],
-                                    data['last_updated_timestamp'], len(bookies_under),
-                                    round(z_score, 2) if z_score is not None else None
-                                )
-                                if unique_key not in best_bets or ev > best_bets[unique_key][7]:
-                                    best_bets[unique_key] = bet_tuple
+                                if z_score is not None and z_score <= self.z_score_limit:
+                                    unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], data['Betting_Point'], "under")
+                                    bet_tuple = (
+                                        data['game_ID'], bookie, data['Prop_Type'], "under",
+                                        data['Player_Name'], data['Betting_Point'], odds,
+                                        round(ev, 2), round(true_prob_under, 4), round(imp_prob, 4),
+                                        round(median(no_vig_probs_over), 4), data['sport_type'],
+                                        data['last_updated_timestamp'], len(bookies_both),
+                                        round(z_score, 2) if z_score is not None else None
+                                    )
+                                    if unique_key not in best_bets or ev > best_bets[unique_key][7]:
+                                        best_bets[unique_key] = bet_tuple
+                    else:
+                        # Estimated method when both sides exist but not enough bookies
+                        self.calculate_estimated_ev(data, "over", overround_est, best_bets)
+                        self.calculate_estimated_ev(data, "under", overround_est, best_bets)
+                elif "over" in outcomes:
+                    self.calculate_estimated_ev(data, "over", overround_est, best_bets)
+                elif "under" in outcomes:
+                    self.calculate_estimated_ev(data, "under", overround_est, best_bets)
 
         self.results = sorted(best_bets.values(), key=lambda x: x[7], reverse=True)
         logger.info(f"Found {len(self.results)} +EV bets" if self.results else "No +EV bets found")
