@@ -198,7 +198,7 @@ class Odds_API:
             try:
                 # Fetch props for the event
                 data = self._make_request(f'/v4/sports/{sport}/events/{event_id}/odds/', params={
-                    'regions': 'us,us2',
+                    'regions': 'us,us2,eu,au,uk',
                     'markets': markets_joined,
                     'oddsFormat': 'american'
                 })

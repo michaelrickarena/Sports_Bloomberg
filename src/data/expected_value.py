@@ -4,20 +4,57 @@ from statistics import median
 logger = logging.getLogger(__name__)
 
 class ExpectedValueAnalyzer:
-    def __init__(self, bet_lines, min_bookies=3, ev_target=7.5):
-        """Initialize the analyzer with bet lines (moneylines or props) and a minimum bookie threshold."""
+    def __init__(self, bet_lines, min_bookies=2, ev_target=5, long_shot_threshold=400, long_shot_inflate=0.135, favorite_threshold=150, favorite_deflate=0.135):
+        """Initialize the analyzer with bet lines (moneylines or props) and a minimum bookie threshold.
+        
+        Args:
+            bet_lines: List of betting lines to analyze.
+            min_bookies: Minimum number of bookies required (default: 2).
+            ev_target: Target EV threshold for +EV bets (default: 7.5).
+            long_shot_threshold: Odds threshold for long shots (default: 400).
+            long_shot_inflate: Additional overround inflation for long shots (default: 0.03).
+            favorite_threshold: Odds threshold for favorites (default: -100).
+            favorite_deflate: Overround deflation for favorites (default: 0.015).
+        """
         self.bet_lines = bet_lines
         self.min_bookies = min_bookies
+        self.z_score_limit_types = ['batter_home_runs', 'batter_doubles']
+        self.higher_z_limit = -2.2
+        self.custom_bookie_limits = {
+            'batter_doubles': 7,
+            'batter_hits': 3,
+            'batter_home_runs': 3,
+            'batter_stolen_bases': 3,
+            'player_double_double': 3,
+            'player_goal_scorer_anytime': 3,
+            'player_shots_on_goal': 3,
+            'player_triple_double': 3,
+            'batter_triples': 3
+        }
         self.results = []
         self.ev_target = ev_target
         self.odds_max = 50000
-        self.inflate_prop = {'player_goal_scorer_anytime', 'batter_home_runs', 'player_goal_scorer_first'}
-        self.inflate_rate = 0.10  # Inflation rate for bets without both sides
-        self.z_score_limit = -1.5  # Z-score threshold for filtering bets
+        self.inflate_prop = {'player_goal_scorer_first'}
+        self.inflate_rate = 0.03  # Base inflation rate for bets without both sides
+        self.z_score_limit = -1.40  # Default z-score threshold
         self.multi_outcome_props = {
             'player_1st_td', 'player_last_td', 'player_first_basket', 'player_first_team_basket',
             'player_goal_scorer_first', 'player_goal_scorer_last', 'batter_first_home_run'
         }
+        self.long_shot_threshold = long_shot_threshold
+        self.long_shot_inflate = long_shot_inflate
+        self.favorite_threshold = favorite_threshold
+        self.favorite_deflate = favorite_deflate
+
+    def get_bookie_limit(self, prop_type):
+        """Return the bookie limit for a given prop type, defaulting to min_bookies if not specified."""
+        return self.custom_bookie_limits.get(prop_type, self.min_bookies)
+
+    def get_z_score_limit(self, prop_type):
+        """Return the z-score limit for a given prop type, defaulting to z_score_limit if not specified."""
+        if prop_type in self.z_score_limit_types:
+            return self.higher_z_limit
+        return self.z_score_limit
 
     def calculate_implied_probability(self, odds):
         """Calculate the implied probability based on American odds."""
@@ -49,9 +86,12 @@ class ExpectedValueAnalyzer:
         return (imp_prob - mean_imp) / std_imp
 
     def calculate_estimated_ev(self, data, side, overround_est, best_bets):
-        """Calculate EV for a single outcome prop side using an estimated overround."""
+        """Calculate EV for a single outcome prop side using an estimated overround, adjusted for long shots and favorites."""
         outcomes = data['outcomes']
-        if side not in outcomes or len(outcomes[side]) < self.min_bookies:
+        prop_type = data['Prop_Type']
+        min_bookies = self.get_bookie_limit(prop_type)
+        z_score_limit = self.get_z_score_limit(prop_type)
+        if side not in outcomes or len(outcomes[side]) < min_bookies:
             return
 
         for bookie, odds in outcomes[side]:
@@ -60,12 +100,18 @@ class ExpectedValueAnalyzer:
             imp_prob = self.calculate_implied_probability(odds)
             if imp_prob is None:
                 continue
-            fair_prob = imp_prob / overround_est
+            # Adjust overround based on odds
+            adjusted_overround_est = overround_est
+            if odds > self.long_shot_threshold:
+                adjusted_overround_est += self.long_shot_inflate  # Increase for long shots
+            elif odds < self.favorite_threshold:
+                adjusted_overround_est = max(1.0, adjusted_overround_est - self.favorite_deflate)  # Decrease for favorites, ensure > 1.0
+            fair_prob = imp_prob / adjusted_overround_est
             ev = self.calculate_expected_value(odds, fair_prob)
             if ev > self.ev_target:
                 imp_probs = [self.calculate_implied_probability(o) for _, o in outcomes[side] if o is not None]
                 z_score = self.calculate_z_score(imp_prob, imp_probs)
-                if z_score is not None and z_score <= self.z_score_limit:
+                if z_score is not None and z_score <= z_score_limit:
                     if side in ["yes", "no"]:
                         unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], side)
                         betting_point = "N/A"
@@ -75,7 +121,7 @@ class ExpectedValueAnalyzer:
                     bet_tuple = (
                         data['game_ID'], bookie, data['Prop_Type'], side,
                         data['Player_Name'], betting_point, odds, round(ev, 2),
-                        round(fair_prob, 4), round(imp_prob, 4), round(fair_prob, 4),
+                        round(fair_prob, 4), round(imp_prob, 4), round(adjusted_overround_est, 4),
                         data['sport_type'], data['last_updated_timestamp'], len(outcomes[side]),
                         round(z_score, 2) if z_score is not None else None
                     )
@@ -230,6 +276,7 @@ class ExpectedValueAnalyzer:
         all_overrounds = []
         for key, data in single_outcome_dict.items():
             outcomes = data['outcomes']
+            min_bookies = self.get_bookie_limit(data['Prop_Type'])
             if "yes" in outcomes and "no" in outcomes:
                 bookies_both = set(bookie for bookie, _ in outcomes["yes"]) & set(bookie for bookie, _ in outcomes["no"])
                 for bookie in bookies_both:
@@ -256,18 +303,20 @@ class ExpectedValueAnalyzer:
         # Compute estimated overround
         if all_overrounds:
             median_overround = median(all_overrounds)
-            overround_est = median_overround + self.inflate_rate  # Use self.inflate_rate for bets without both sides
+            overround_est = median_overround + self.inflate_rate
         else:
             logger.warning("No overrounds collected; using default overround_est")
-            overround_est = 1.15 + self.inflate_rate  # Adjusted default to use self.inflate_rate
+            overround_est = 1.15 + self.inflate_rate
 
         # Analyze multi-outcome props
         for game_key, game_data in multi_outcome_dict.items():
             players = game_data['players']
             all_bookies = set()
+            min_bookies = self.get_bookie_limit(game_data['Prop_Type'])
+            z_score_limit = self.get_z_score_limit(game_data['Prop_Type'])
             for odds_list in players.values():
                 all_bookies.update(bookie for bookie, _ in odds_list)
-            if len(all_bookies) < self.min_bookies:
+            if len(all_bookies) < min_bookies:
                 logger.debug(f"Skipping {game_key}: Only {len(all_bookies)} bookies")
                 continue
 
@@ -290,7 +339,7 @@ class ExpectedValueAnalyzer:
 
             for player_name, (median_imp_prob, odds_list) in player_median_probs.items():
                 bookies = set(bookie for bookie, _ in odds_list)
-                if len(bookies) < self.min_bookies:
+                if len(bookies) < min_bookies:
                     continue
                 fair_prob = median_imp_prob / market_overround if market_overround > 0 else 0
                 imp_probs = [self.calculate_implied_probability(o) for _, o in odds_list if o is not None]
@@ -301,7 +350,7 @@ class ExpectedValueAnalyzer:
                     if ev > self.ev_target:
                         imp_prob = self.calculate_implied_probability(odds)
                         z_score = self.calculate_z_score(imp_prob, imp_probs)
-                        if z_score is not None and z_score <= self.z_score_limit:
+                        if z_score is not None and z_score <= z_score_limit:
                             unique_key = (game_data['game_ID'], game_data['Prop_Type'], player_name)
                             bet_tuple = (
                                 game_data['game_ID'], bookie, game_data['Prop_Type'], "yes",
@@ -316,10 +365,12 @@ class ExpectedValueAnalyzer:
         # Analyze single-outcome props
         for key, data in single_outcome_dict.items():
             outcomes = data['outcomes']
+            min_bookies = self.get_bookie_limit(data['Prop_Type'])
+            z_score_limit = self.get_z_score_limit(data['Prop_Type'])
             if "yes" in outcomes or "no" in outcomes:
                 if "yes" in outcomes and "no" in outcomes:
                     bookies_both = set(bookie for bookie, _ in outcomes["yes"]) & set(bookie for bookie, _ in outcomes["no"])
-                    if len(bookies_both) >= self.min_bookies:
+                    if len(bookies_both) >= min_bookies:
                         # Accurate method
                         no_vig_probs_yes = []
                         for bookie in bookies_both:
@@ -342,17 +393,21 @@ class ExpectedValueAnalyzer:
                         for bookie, odds in outcomes["yes"]:
                             if odds is None or odds > self.odds_max:
                                 continue
-                            ev = self.calculate_expected_value(odds, true_prob_yes)
+                            # Adjust true probability for long shots
+                            adjusted_true_prob_yes = true_prob_yes
+                            if odds > self.long_shot_threshold:
+                                adjusted_true_prob_yes *= (1 - self.long_shot_inflate)  # Reduce probability by long_shot_inflate
+                            ev = self.calculate_expected_value(odds, adjusted_true_prob_yes)
                             if ev > self.ev_target:
                                 imp_prob = self.calculate_implied_probability(odds)
                                 imp_probs_yes = [self.calculate_implied_probability(o) for _, o in outcomes["yes"] if o is not None]
                                 z_score = self.calculate_z_score(imp_prob, imp_probs_yes)
-                                if z_score is not None and z_score <= self.z_score_limit:
+                                if z_score is not None and z_score <= z_score_limit:
                                     unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], "yes")
                                     bet_tuple = (
                                         data['game_ID'], bookie, data['Prop_Type'], "yes",
                                         data['Player_Name'], "N/A", odds, round(ev, 2),
-                                        round(true_prob_yes, 4), round(imp_prob, 4),
+                                        round(adjusted_true_prob_yes, 4), round(imp_prob, 4),
                                         round(median(no_vig_probs_yes), 4), data['sport_type'],
                                         data['last_updated_timestamp'], len(bookies_both),
                                         round(z_score, 2) if z_score is not None else None
@@ -363,17 +418,21 @@ class ExpectedValueAnalyzer:
                         for bookie, odds in outcomes["no"]:
                             if odds is None or odds > self.odds_max:
                                 continue
-                            ev = self.calculate_expected_value(odds, true_prob_no)
+                            # Adjust true probability for long shots
+                            adjusted_true_prob_no = true_prob_no
+                            if odds > self.long_shot_threshold:
+                                adjusted_true_prob_no *= (1 - self.long_shot_inflate)  # Reduce probability by long_shot_inflate
+                            ev = self.calculate_expected_value(odds, adjusted_true_prob_no)
                             if ev > self.ev_target:
                                 imp_prob = self.calculate_implied_probability(odds)
                                 imp_probs_no = [self.calculate_implied_probability(o) for _, o in outcomes["no"] if o is not None]
                                 z_score = self.calculate_z_score(imp_prob, imp_probs_no)
-                                if z_score is not None and z_score <= self.z_score_limit:
+                                if z_score is not None and z_score <= z_score_limit:
                                     unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], "no")
                                     bet_tuple = (
                                         data['game_ID'], bookie, data['Prop_Type'], "no",
                                         data['Player_Name'], "N/A", odds, round(ev, 2),
-                                        round(true_prob_no, 4), round(imp_prob, 4),
+                                        round(adjusted_true_prob_no, 4), round(imp_prob, 4),
                                         round(median(no_vig_probs_yes), 4), data['sport_type'],
                                         data['last_updated_timestamp'], len(bookies_both),
                                         round(z_score, 2) if z_score is not None else None
@@ -392,7 +451,7 @@ class ExpectedValueAnalyzer:
             elif "over" in outcomes or "under" in outcomes:
                 if "over" in outcomes and "under" in outcomes:
                     bookies_both = set(bookie for bookie, _ in outcomes["over"]) & set(bookie for bookie, _ in outcomes["under"])
-                    if len(bookies_both) >= self.min_bookies:
+                    if len(bookies_both) >= min_bookies:
                         # Accurate method
                         no_vig_probs_over = []
                         for bookie in bookies_both:
@@ -415,17 +474,21 @@ class ExpectedValueAnalyzer:
                         for bookie, odds in outcomes["over"]:
                             if odds is None or odds > self.odds_max:
                                 continue
-                            ev = self.calculate_expected_value(odds, true_prob_over)
+                            # Adjust true probability for long shots
+                            adjusted_true_prob_over = true_prob_over
+                            if odds > self.long_shot_threshold:
+                                adjusted_true_prob_over *= (1 - self.long_shot_inflate)  # Reduce probability by long_shot_inflate
+                            ev = self.calculate_expected_value(odds, adjusted_true_prob_over)
                             if ev > self.ev_target:
                                 imp_prob = self.calculate_implied_probability(odds)
                                 imp_probs_over = [self.calculate_implied_probability(o) for _, o in outcomes["over"] if o is not None]
                                 z_score = self.calculate_z_score(imp_prob, imp_probs_over)
-                                if z_score is not None and z_score <= self.z_score_limit:
+                                if z_score is not None and z_score <= z_score_limit:
                                     unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], data['Betting_Point'], "over")
                                     bet_tuple = (
                                         data['game_ID'], bookie, data['Prop_Type'], "over",
                                         data['Player_Name'], data['Betting_Point'], odds,
-                                        round(ev, 2), round(true_prob_over, 4), round(imp_prob, 4),
+                                        round(ev, 2), round(adjusted_true_prob_over, 4), round(imp_prob, 4),
                                         round(median(no_vig_probs_over), 4), data['sport_type'],
                                         data['last_updated_timestamp'], len(bookies_both),
                                         round(z_score, 2) if z_score is not None else None
@@ -436,17 +499,21 @@ class ExpectedValueAnalyzer:
                         for bookie, odds in outcomes["under"]:
                             if odds is None or odds > self.odds_max:
                                 continue
-                            ev = self.calculate_expected_value(odds, true_prob_under)
+                            # Adjust true probability for long shots
+                            adjusted_true_prob_under = true_prob_under
+                            if odds > self.long_shot_threshold:
+                                adjusted_true_prob_under *= (1 - self.long_shot_inflate)  # Reduce probability by long_shot_inflate
+                            ev = self.calculate_expected_value(odds, adjusted_true_prob_under)
                             if ev > self.ev_target:
                                 imp_prob = self.calculate_implied_probability(odds)
                                 imp_probs_under = [self.calculate_implied_probability(o) for _, o in outcomes["under"] if o is not None]
                                 z_score = self.calculate_z_score(imp_prob, imp_probs_under)
-                                if z_score is not None and z_score <= self.z_score_limit:
+                                if z_score is not None and z_score <= z_score_limit:
                                     unique_key = (data['game_ID'], data['Prop_Type'], data['Player_Name'], data['Betting_Point'], "under")
                                     bet_tuple = (
                                         data['game_ID'], bookie, data['Prop_Type'], "under",
                                         data['Player_Name'], data['Betting_Point'], odds,
-                                        round(ev, 2), round(true_prob_under, 4), round(imp_prob, 4),
+                                        round(ev, 2), round(adjusted_true_prob_under, 4), round(imp_prob, 4),
                                         round(median(no_vig_probs_over), 4), data['sport_type'],
                                         data['last_updated_timestamp'], len(bookies_both),
                                         round(z_score, 2) if z_score is not None else None
