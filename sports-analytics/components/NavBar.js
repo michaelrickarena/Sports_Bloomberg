@@ -14,6 +14,7 @@ const NavBar = () => {
   const [showDropdownNHL, setShowDropdownNHL] = useState(false);
   const [showDropdownMLB, setShowDropdownMLB] = useState(false);
   const [showDropdownNBA, setShowDropdownNBA] = useState(false);
+  const [showDropdownArbitrage, setShowDropdownArbitrage] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -34,6 +35,7 @@ const NavBar = () => {
       setShowDropdownNHL(false);
       setShowDropdownMLB(false);
       setShowDropdownNBA(false);
+      setShowDropdownArbitrage(false);
     }
   }, [pathname, isMounted]);
 
@@ -90,7 +92,7 @@ const NavBar = () => {
           onMouseEnter={() => setShowDropdown(true)}
           onMouseLeave={() => setShowDropdown(false)}
           onClick={(e) => {
-            e.stopPropagation(); // Prevent bubbling to hamburger
+            e.stopPropagation();
             handleDropdownToggle(setShowDropdown, showDropdown);
           }}
         >
@@ -200,8 +202,30 @@ const NavBar = () => {
           )}
         </li>
 
-        <li className={styles.navItem}>
-          <Link href="/arbitrage-opportunities">Arbitrage</Link>
+        {/* Arbitrage Dropdown */}
+        <li
+          className={styles.navItem}
+          onMouseEnter={() => setShowDropdownArbitrage(true)}
+          onMouseLeave={() => setShowDropdownArbitrage(false)}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDropdownToggle(
+              setShowDropdownArbitrage,
+              showDropdownArbitrage
+            );
+          }}
+        >
+          <span className={styles.navLink}>Arbitrage</span>
+          {showDropdownArbitrage && (
+            <ul className={styles.dropdown}>
+              <li>
+                <Link href="/arbitrage">Opportunities</Link>
+              </li>
+              <li>
+                <Link href="/arbitrage-opportunities">Tracking</Link>
+              </li>
+            </ul>
+          )}
         </li>
 
         {isLoggedIn ? (
