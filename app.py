@@ -2,6 +2,7 @@ import os
 from src.data.odds_api import Odds_API
 from src.utils.db import DB
 from src.data.expected_value import ExpectedValueAnalyzer
+from src.data.arbitrage import ArbitrageAnalyzer
 import logging
 
 logger = logging.getLogger(__name__)
@@ -36,12 +37,16 @@ def lambda_handler(event=None, context=None):
         db.create_distinct_props()
         db.create_latest_EV_moneyline()
         db.create_latest_EV_props()
+        db.create_arbitrage()
 
         # API Usage from Odds API
         all_game_results = odds_api.filter_scores()
         game_totals, game_spreads, game_lines = odds_api.bookies_and_odds()
         all_prop_bets = odds_api.prop_bets_filters()
         all_event_ids, all_event_details = odds_api.get_events()
+
+        arbitage = ArbitrageAnalyzer(all_prop_bets)
+        arbitage_props = arbitage.analyze()
 
         #process expected value
         ev_opportunities_ml_results = ExpectedValueAnalyzer(game_lines)
@@ -50,8 +55,10 @@ def lambda_handler(event=None, context=None):
         ev_opportunities_prop_results = ExpectedValueAnalyzer(all_prop_bets)
         ev_opportunities_prop = ev_opportunities_prop_results.analyze_prop() 
 
+        
+
         ## remove existing and Insert data into latest_tables for best bets
-        VALID_TABLES = ['upcoming_games', 'latest_spreads', 'latest_moneyline', 'latest_overunder', 'latest_props', 'expected_value_moneyline', 'expected_value_props']
+        VALID_TABLES = ['upcoming_games', 'latest_spreads', 'latest_moneyline', 'latest_overunder', 'latest_props', 'expected_value_moneyline', 'expected_value_props', 'arbitrage']
         for table in VALID_TABLES:
             try:
                 db.truncate_table(f'{table}')
@@ -60,6 +67,8 @@ def lambda_handler(event=None, context=None):
                 pass
 
         db.insert_NFL_scores(all_game_results)
+
+        db.insert_arbitrage(arbitage_props)
 
         ## Insert data into Postgresql tables for expected value
         db.insert_expected_value_moneyline(ev_opportunities_ml)

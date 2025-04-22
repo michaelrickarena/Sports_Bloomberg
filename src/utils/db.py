@@ -1162,6 +1162,99 @@ class DB:
 
 ### START +EV table
 
+    def create_arbitrage(self):
+        """Creates the arbitrage table in the database with a unique constraint."""
+        try:
+            with self.conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS arbitrage (
+                        id SERIAL PRIMARY KEY,
+                        game_ID VARCHAR(255) NOT NULL,
+                        Prop_Type TEXT NOT NULL,
+                        Player_Name TEXT NOT NULL,
+                        Betting_Point TEXT NOT NULL,
+                        sport_type TEXT NOT NULL,
+                        bookie_one TEXT NOT NULL,
+                        outcome_one TEXT,
+                        odds_one INT NOT NULL,
+                        bet_amount_one FLOAT NOT NULL,
+                        bookie_two TEXT NOT NULL,
+                        outcome_two TEXT,
+                        odds_two INT NOT NULL,
+                        bet_amount_two FLOAT NOT NULL,
+                        profit_percentage FLOAT NOT NULL,
+                        last_updated_timestamp TIMESTAMPTZ NOT NULL,
+                        UNIQUE (game_ID, Prop_Type, Player_Name, Betting_Point, bookie_one, outcome_one, bookie_two, outcome_two)
+                    );
+                    """
+                )
+            self.conn.commit()
+            logger.info("Successfully created arbitrage table or table already exists")
+        except Exception as e:
+            logger.error(f"Failed to create arbitrage table. Error: {e}", exc_info=True)
+            self.conn.rollback()
+
+    def insert_arbitrage(self, arbitrage):
+        """
+        Inserts arbitrage opportunities into the database.
+
+        Args:
+            arbitrage (list of tuples): List of tuples with the following columns:
+                - game_ID (str): Unique ID from OddsAPI for the relevant game or event.
+                - Prop_Type (str): Type of prop bet (e.g., 'player_points', 'game_winner').
+                - Player_Name (str): Name of the player associated with the prop bet.
+                - Betting_Point (str): Line or point for the prop bet (e.g., '25.5' for points).
+                - sport_type (str): Sport type (e.g., 'basketball_nba', 'football_nfl').
+                - bookie_one (str): Name of the first bookmaker offering one side of the prop.
+                - outcome_one (str or None): Outcome offered by bookie_one (e.g., 'over', 'under').
+                - odds_one (int): American odds provided by bookie_one (e.g., -110, +130).
+                - bet_amount_one (float): Suggested bet amount on bookie_one to lock in profit.
+                - bookie_two (str): Name of the second bookmaker offering the opposing side.
+                - outcome_two (str or None): Outcome offered by bookie_two.
+                - odds_two (int): American odds provided by bookie_two.
+                - bet_amount_two (float): Suggested bet amount on bookie_two to lock in profit.
+                - profit_percentage (float): Percentage profit from the arbitrage opportunity, rounded to 2 decimal places.
+                - last_updated_timestamp (str): ISO 8601 format timestamp of the latest odds update.
+        """
+
+        if not isinstance(arbitrage, list):
+            raise TypeError(f"arbitrage must be a list of tuples, got {type(arbitrage)}")
+
+        inserted_count = 0
+        line = None
+        try:
+            with self.conn.cursor() as cursor:
+                for line in arbitrage:
+                    game_id = line[0]
+                    cursor.execute("SELECT 1 FROM scores WHERE game_id = %s", (game_id,))
+                    if not cursor.fetchone():
+                        logger.warning(f"Game ID {game_id} does not exist in scores. Skipping insertion.")
+                        continue
+
+                    cursor.execute("""
+                        INSERT INTO arbitrage (
+                            game_ID, Prop_Type, Player_Name, Betting_Point, sport_type,
+                            bookie_one, outcome_one, odds_one, bet_amount_one,
+                            bookie_two, outcome_two, odds_two, bet_amount_two,
+                            profit_percentage, last_updated_timestamp
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (game_ID, Prop_Type, Player_Name, Betting_Point, bookie_one, outcome_one, bookie_two, outcome_two) DO NOTHING
+                    """, line)
+                    inserted_count += cursor.rowcount  # Accurately count inserted rows
+
+            self.conn.commit()
+            logger.info(f"Successfully inserted {inserted_count} rows into 'arbitrage' table")
+        except Exception as e:
+            if line is not None:
+                logger.error(f"Failed to insert into 'arbitrage' table. Error: {e}, problematic line: {line}", exc_info=True)
+            else:
+                logger.error(f"Failed to insert into 'arbitrage' table. Error: {e}", exc_info=True)
+            self.conn.rollback()
+
+
+### end arbitrage
+
     def clean_old_data(self, table: str) -> None:
         """Deletes records older than 24 hours from the specified table based on last_updated_timestamp.
 
@@ -1195,7 +1288,7 @@ class DB:
         Args:
             table (str): The name of the table to truncate.
         """
-        VALID_TABLES = ['upcoming_games', 'latest_spreads', 'latest_moneyline', 'latest_overunder', 'latest_props', 'expected_value_moneyline', 'expected_value_props']
+        VALID_TABLES = ['upcoming_games', 'latest_spreads', 'latest_moneyline', 'latest_overunder', 'latest_props', 'expected_value_moneyline', 'expected_value_props', 'arbitrage']
 
         if table not in VALID_TABLES:
             logger.error(f"Invalid table name: {table}. Truncate operation aborted.")
