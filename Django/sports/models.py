@@ -451,3 +451,26 @@ class ExpectedValueProps(models.Model):
         db_table = 'expected_value_props'
         unique_together = (('game_ID', 'Bookie', 'Prop_Type', 'Bet_Type', 'Player_Name', 'Betting_Line'),)
         managed = False
+
+class Arbitrage(models.Model):
+    id = models.AutoField(primary_key=True, db_column='id')
+    game_ID = models.CharField(max_length=255, db_column='game_id')
+    Prop_Type = models.TextField(db_column='prop_type')
+    Player_Name = models.TextField(db_column='player_name')
+    Betting_Point = models.TextField(db_column='betting_point')
+    sport_type = models.TextField(db_column='sport_type')
+    bookie_one = models.TextField(db_column='bookie_one')
+    outcome_one = models.TextField(null=True, blank=True, db_column='outcome_one')
+    odds_one = models.IntegerField(db_column='odds_one')
+    bet_amount_one = models.FloatField(db_column='bet_amount_one')
+    bookie_two = models.TextField(db_column='bookie_two')
+    outcome_two = models.TextField(null=True, blank=True, db_column='outcome_two')
+    odds_two = models.IntegerField(db_column='odds_two')
+    bet_amount_two = models.FloatField(db_column='bet_amount_two')
+    profit_percentage = models.FloatField(db_column='profit_percentage')
+    last_updated_timestamp = models.DateTimeField(db_column='last_updated_timestamp')
+
+    class Meta:
+        db_table = 'arbitrage'
+        unique_together = (('game_ID', 'Prop_Type', 'Player_Name', 'Betting_Point', 'bookie_one', 'outcome_one', 'bookie_two', 'outcome_two'),)
+        managed = False

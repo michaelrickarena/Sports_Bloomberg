@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Moneyline, Overunder, Props, Scores, Spreads, UpcomingGames, latest_Moneyline, latest_Overunder, latest_Props, latest_Spreads, DistinctProps, ExpectedValueMoneyline, ExpectedValueProps, UserBet
+from .models import Moneyline, Overunder, Props, Scores, Spreads, UpcomingGames, latest_Moneyline, latest_Overunder, latest_Props, latest_Spreads, DistinctProps, ExpectedValueMoneyline, ExpectedValueProps, UserBet, Arbitrage
 from .serializers import (
     MoneylineSerializer,
     OverunderSerializer,
@@ -17,7 +17,8 @@ from .serializers import (
     DistinctPropsSerializer, 
     ExpectedValueMoneylineSerializer, 
     ExpectedValuePropsSerializer,
-    UserBetSerializer
+    UserBetSerializer,
+    ArbitrageSerializer
 )
 from rest_framework.pagination import PageNumberPagination
 from .services import get_chart_data
@@ -1096,3 +1097,8 @@ class ExpectedValueMoneylineListView(generics.ListAPIView):
 class ExpectedValuePropsListView(generics.ListAPIView):
     queryset = ExpectedValueProps.objects.all()
     serializer_class = ExpectedValuePropsSerializer
+
+
+class ArbitrageListView(generics.ListAPIView):
+    queryset = Arbitrage.objects.all()
+    serializer_class = ArbitrageSerializer

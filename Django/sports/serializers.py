@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Moneyline, Overunder, Props, Scores, Spreads, UpcomingGames, latest_Moneyline, latest_Overunder, latest_Props, latest_Spreads, DistinctProps, UserBet, ExpectedValueMoneyline, ExpectedValueProps
+from .models import Moneyline, Overunder, Props, Scores, Spreads, UpcomingGames, latest_Moneyline, latest_Overunder, latest_Props, latest_Spreads, DistinctProps, UserBet, ExpectedValueMoneyline, ExpectedValueProps, Arbitrage
 
 
 class MoneylineSerializer(serializers.ModelSerializer):
@@ -99,4 +99,9 @@ class ExpectedValueMoneylineSerializer(serializers.ModelSerializer):
 class ExpectedValuePropsSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExpectedValueProps
+        fields = '__all__'
+
+class ArbitrageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Arbitrage
         fields = '__all__'

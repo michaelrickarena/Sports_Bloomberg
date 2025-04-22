@@ -21,7 +21,8 @@ from sports.views import (
     SpreadsListView, UpcomingGamesListView, OverunderChartDataView, PropsChartDataView, SpreadsChartDataView, 
     latest_MoneylineListView, latest_OverunderListView, latest_PropsListView, latest_SpreadsListView, DistinctPropsListView, 
     create_checkout_session, stripe_webhook, login_and_get_jwt, cancel_subscription, verify_email, get_subscription_details,
-    password_reset_request, password_reset_confirm, UserBetCreateView, UserBetListView, UserBetDeleteView, ExpectedValueMoneylineListView, ExpectedValuePropsListView
+    password_reset_request, password_reset_confirm, UserBetCreateView, UserBetListView, UserBetDeleteView, ExpectedValueMoneylineListView, ExpectedValuePropsListView,
+    ArbitrageListView
 
 )
 from django.http import HttpResponse
@@ -65,6 +66,8 @@ urlpatterns = [
     path("api/user_bets/", UserBetCreateView.as_view(), name="user_bet_create"),
     path('api/user_bets/list/', UserBetListView.as_view(), name='user_bet_list'),
     path('api/user_bets/delete/<int:pk>/', UserBetDeleteView.as_view(), name='user_bet_delete'),
+    path('api/arbitrage/', ArbitrageListView.as_view(), name='Arbitrage'),
+
 
     #Expected Value
     path('api/expected-value-moneyline/', ExpectedValueMoneylineListView.as_view(), name='expected-value-moneyline'),
