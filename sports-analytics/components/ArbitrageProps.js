@@ -313,7 +313,7 @@ export default function Arbitrage() {
                 onClick={() => handleSort("profit_percentage")}
                 style={{ cursor: "pointer" }}
               >
-                Profit Percentage{" "}
+                Return Percentage{" "}
                 {sortConfig.key === "profit_percentage"
                   ? sortConfig.direction === "asc"
                     ? "▲"
