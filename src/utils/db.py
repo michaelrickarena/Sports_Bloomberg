@@ -7,7 +7,8 @@ from pathlib import Path
 import logging
 import io
 import traceback
-from psycopg2.extras import execute_batch
+import time
+from psycopg2.extras import execute_batch, execute_values
 
 
 logger = logging.getLogger(__name__)
@@ -117,32 +118,6 @@ class DB:
         except Exception as e:
             logger.error(f"failed to create spreads table. Error: {e}", exc_info=True)
 
-    # def insert_NFL_spreads(self, spreads):
-    #     """Inserts provided list of tuples of spreads into DB
-
-    #     Args:
-    #     spreads (list of tuples): The list of tuples will have the following columns.
-    #             - 'game_ID': Unique ID from OddsAPI for a game/event
-    #             - 'Bookie': Name of one of 10 bookies included in OddsAPI
-    #             - 'Matchup_Type': Type of matchup needed for the bet
-    #             - 'Home_Team': Home Team
-    #             - 'Spread_1': Spread for the home team
-    #             - 'Line_1': Betting line for the home team spread
-    #             - 'Away_Team': Away Team
-    #             - 'Spread_2': Spread for the away team
-    #             - 'Line_2': Betting line for the away team spread
-    #             - 'event_timestamp': time of the game
-    #             - 'last_updated_timestamp': last time updated
-    #             - 'sport_type': the type of sport for this bet
-    #     """
-    #     try:
-    #         with self.conn.cursor() as cursor:
-    #             cursor.executemany("INSERT INTO spreads (game_ID, Bookie, Matchup_Type, Home_Team, Spread_1, Line_1, Away_Team, Spread_2, Line_2, event_timestamp, last_updated_timestamp, sport_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", spreads)
-    #         self.conn.commit()
-    #         logger.info("Successfully inserted data into NFL_spreads table")
-    #     except Exception as e:
-    #         logger.error(f"failed to insert data into NFL_spreads table. Error: {e}, data: {spreads}", exc_info=True)
-
     def insert_NFL_spreads(self, spreads):
         """Inserts provided list of tuples of spreads into DB after verifying the game_ID exists in scores
 
@@ -187,7 +162,76 @@ class DB:
         except Exception as e:
             logger.error(f"Failed to insert data into spreads table. Error: {e}, data: {spreads}", exc_info=True)
 
+    def insert_spreads_and_latest_spreads(self, spreads, batch_size=1000, max_retries=3):
+        """Inserts provided list of spreads into both 'spreads' and 'latest_spreads' tables in batches with retry logic."""
+        try:
+            logger.debug("Splitting data into batches for spreads and latest_spreads.")
+            batches = [spreads[i:i + batch_size] for i in range(0, len(spreads), batch_size)]
 
+            for attempt in range(max_retries):
+                try:
+                    with self.conn.cursor() as cursor:
+                        for batch_index, batch in enumerate(batches):
+                            logger.debug(f"Inserting batch {batch_index + 1} with {len(batch)} rows.")
+                            sanitized_batch = [
+                                (
+                                    str(row[0]),  # game_ID
+                                    str(row[1]),  # Bookie
+                                    str(row[2]),  # Matchup_Type
+                                    str(row[3]),  # Home_Team
+                                    float(row[4]),  # Spread_1
+                                    int(row[5]),  # Line_1
+                                    str(row[6]),  # Away_Team
+                                    float(row[7]),  # Spread_2
+                                    int(row[8]),  # Line_2
+                                    row[9],       # event_timestamp
+                                    row[10],      # last_updated_timestamp
+                                    str(row[11])  # sport_type
+                                )
+                                for row in batch
+                            ]
+
+                            query = """
+                                WITH inserted AS (
+                                    INSERT INTO spreads (
+                                        game_ID, Bookie, Matchup_Type, Home_Team, Spread_1, Line_1, 
+                                        Away_Team, Spread_2, Line_2, event_timestamp, last_updated_timestamp, sport_type
+                                    ) VALUES %s
+                                    ON CONFLICT DO NOTHING
+                                    RETURNING game_ID, Bookie, Matchup_Type, Home_Team, Spread_1, Line_1, 
+                                              Away_Team, Spread_2, Line_2, event_timestamp, last_updated_timestamp, sport_type
+                                )
+                                INSERT INTO latest_spreads (
+                                    game_ID, Bookie, Matchup_Type, Home_Team, Spread_1, Line_1, 
+                                    Away_Team, Spread_2, Line_2, event_timestamp, last_updated_timestamp, sport_type
+                                )
+                                SELECT * FROM inserted
+                                ON CONFLICT DO NOTHING;
+                            """
+                            execute_values(
+                                cursor,
+                                query,
+                                sanitized_batch,
+                                template="(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                            )
+                            logger.info(f"Inserted batch {batch_index + 1} with {len(batch)} rows into spreads and latest_spreads.")
+
+                    self.conn.commit()
+                    logger.info(f"Successfully inserted {len(spreads)} rows into both spreads and latest_spreads tables.")
+                    return
+                except psycopg2.OperationalError as e:
+                    logger.warning(f"Serialization failure on attempt {attempt + 1}/{max_retries}. Retrying...")
+                    self.conn.rollback()
+                    time.sleep(2 ** attempt)
+                except Exception as e:
+                    logger.error(f"Error inserting data into spreads and latest_spreads tables. Full traceback:\n{traceback.format_exc()}")
+                    self.conn.rollback()
+                    raise
+
+            logger.error(f"Failed to insert spreads and latest_spreads after {max_retries} retries.")
+            raise Exception("Max retries exceeded for insert_spreads_and_latest_spreads.")
+        except Exception as e:
+            logger.error(f"Unhandled error in insert_spreads_and_latest_spreads. Full traceback:\n{traceback.format_exc()}")
 
 ###### END NFL SPREADS Create, insert, Get, Clear
 
@@ -263,32 +307,75 @@ class DB:
         except Exception as e:
             logger.error(f"Failed to insert data into moneyline table. Error: {e}, data: {moneyline}", exc_info=True)
 
+    def insert_moneyline_and_latest_moneyline(self, moneyline, batch_size=1000, max_retries=3):
+        """Inserts provided list of moneyline data into both 'moneyline' and 'latest_moneyline' tables in batches with retry logic."""
+        try:
+            logger.debug("Splitting data into batches for moneyline and latest_moneyline.")
+            batches = [moneyline[i:i + batch_size] for i in range(0, len(moneyline), batch_size)]
 
+            for attempt in range(max_retries):
+                try:
+                    with self.conn.cursor() as cursor:
+                        for batch_index, batch in enumerate(batches):
+                            logger.debug(f"Inserting batch {batch_index + 1} with {len(batch)} rows.")
+                            sanitized_batch = [
+                                (
+                                    str(row[0]),  # game_ID
+                                    str(row[1]),  # Bookie
+                                    str(row[2]),  # Matchup_Type
+                                    str(row[3]),  # Home_Team
+                                    int(row[4]),  # Line_1
+                                    str(row[5]),  # Away_Team
+                                    int(row[6]),  # Line_2
+                                    row[7],       # event_timestamp
+                                    row[8],       # last_updated_timestamp
+                                    str(row[9])   # sport_type
+                                )
+                                for row in batch
+                            ]
 
-    # def insert_NFL_moneyline(self, moneyline):
-    #     """Inserts provided list of tuples of moneylines into DB
+                            query = """
+                                WITH inserted AS (
+                                    INSERT INTO moneyline (
+                                        game_ID, Bookie, Matchup_Type, Home_Team, Line_1, Away_Team, 
+                                        Line_2, event_timestamp, last_updated_timestamp, sport_type
+                                    ) VALUES %s
+                                    ON CONFLICT DO NOTHING
+                                    RETURNING game_ID, Bookie, Matchup_Type, Home_Team, Line_1, Away_Team, 
+                                              Line_2, event_timestamp, last_updated_timestamp, sport_type
+                                )
+                                INSERT INTO latest_moneyline (
+                                    game_ID, Bookie, Matchup_Type, Home_Team, Line_1, Away_Team, 
+                                    Line_2, event_timestamp, last_updated_timestamp, sport_type
+                                )
+                                SELECT * FROM inserted
+                                ON CONFLICT DO NOTHING;
+                            """
+                            execute_values(
+                                cursor,
+                                query,
+                                sanitized_batch,
+                                template="(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                            )
+                            logger.info(f"Inserted batch {batch_index + 1} with {len(batch)} rows into moneyline and latest_moneyline.")
 
-    #     Args:
-    #     moneylines (list of tuples): The list of tuples will have the following columns.
-    #             - 'game_ID': Unique ID from OddsAPI for a game/event
-    #             - 'Bookie': Name of one of 10 bookies included in OddsAPI
-    #             - 'Matchup_Type': Type of matchup needed for the bet
-    #             - 'Home_Team': Home Team
-    #             - 'Line_1': Betting line for the home team Moneyline
-    #             - 'Away_Team': Away Team
-    #             - 'Line_2': Betting line for the away team Moneyline
-    #             - 'event_timestamp': time of the game
-    #             - 'last_updated_timestamp': last time updated
-    #             - 'sport_type': the type of sport for this bet
-    #     """
+                    self.conn.commit()
+                    logger.info(f"Successfully inserted {len(moneyline)} rows into both moneyline and latest_moneyline tables.")
+                    return
+                except psycopg2.OperationalError as e:
+                    logger.warning(f"Serialization failure on attempt {attempt + 1}/{max_retries}. Retrying...")
+                    self.conn.rollback()
+                    time.sleep(2 ** attempt)
+                except Exception as e:
+                    logger.error(f"Error inserting data into moneyline and latest_moneyline tables. Full traceback:\n{traceback.format_exc()}")
+                    self.conn.rollback()
+                    raise
 
-    #     try:
-    #         with self.conn.cursor() as cursor:
-    #             cursor.executemany("INSERT INTO moneyline (game_ID, Bookie, Matchup_Type, Home_Team, Line_1, Away_Team, Line_2, event_timestamp, last_updated_timestamp, sport_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", moneyline)
-    #         self.conn.commit()
-    #         logger.info("Successfully inserted data into moneyline table")
-    #     except Exception as e:
-    #         logger.error(f"Failed to insert data into moneyline table. Error: {e}, data: {moneyline}", exc_info=True)
+            logger.error(f"Failed to insert moneyline and latest_moneyline after {max_retries} retries.")
+            raise Exception("Max retries exceeded for insert_moneyline_and_latest_moneyline.")
+        except Exception as e:
+            logger.error(f"Unhandled error in insert_moneyline_and_latest_moneyline. Full traceback:\n{traceback.format_exc()}")
+
 
 ### END NFL MoneyLine Create, insert, Get, Clear
 
@@ -361,34 +448,81 @@ class DB:
         except Exception as e:
             logger.error(f"Failed to insert data into overunder table. Error: {e}, data: {overunder}", exc_info=True)
 
+    def insert_overunder_and_latest_overunder(self, overunder, batch_size=1000, max_retries=3):
+        """Inserts provided list of overunder data into both 'overunder' and 'latest_overunder' tables in batches with retry logic."""
+        try:
+            logger.debug("Splitting data into batches for overunder and latest_overunder.")
+            batches = [overunder[i:i + batch_size] for i in range(0, len(overunder), batch_size)]
 
-    # def insert_NFL_overunder(self, overunder):
-    #     """Inserts provided list of tuples of overunders into DB
+            for attempt in range(max_retries):
+                try:
+                    with self.conn.cursor() as cursor:
+                        for batch_index, batch in enumerate(batches):
+                            logger.debug(f"Inserting batch {batch_index + 1} with {len(batch)} rows.")
+                            sanitized_batch = [
+                                (
+                                    str(row[0]),  # game_ID
+                                    str(row[1]),  # Bookie
+                                    str(row[2]),  # Matchup_Type
+                                    str(row[3]),  # Home_Team
+                                    str(row[4]),  # Away_Team
+                                    str(row[5]),  # Over_or_Under_1
+                                    float(row[6]),  # Over_Under_Total_1
+                                    int(row[7]),  # Over_Under_Line_1
+                                    str(row[8]),  # Over_or_Under_2
+                                    float(row[9]),  # Over_Under_Total_2
+                                    int(row[10]), # Over_Under_Line_2
+                                    row[11],      # event_timestamp
+                                    row[12],      # last_updated_timestamp
+                                    str(row[13])  # sport_type
+                                )
+                                for row in batch
+                            ]
 
-    #     Args:
-    #     overunder (list of tuples): The list of tuples will have the following columns.
-    #             - 'game_ID': Unique ID from OddsAPI for a game/event
-    #             - 'Bookie': Name of one of 10 bookies included in OddsAPI
-    #             - 'Matchup_Type': Type of matchup needed for the bet
-    #             - 'Home_Team': Home Team
-    #             - 'Away_Team': Away Team                
-    #             - 'Over_or_Under_1': Either "Over" or "Under"
-    #             - 'Over_Under_Total_1': total points scored for over or under
-    #             - 'Over_Under_Line_1': betting line for total / over or under
-    #             - 'Over_or_Under_2': Either "Over" or "Under"
-    #             - 'Over_Under_Total_2': total points scored for over or under
-    #             - 'Over_Under_Line_2': betting line for total / over or under
-    #             - 'event_timestamp': time of the game
-    #             - 'last_updated_timestamp': last time updated
-    #             - 'sport_type': the type of sport for this bet
-    #     """
-    #     try:
-    #         with self.conn.cursor() as cursor:
-    #             cursor.executemany("INSERT INTO overunder (game_ID, Bookie, Matchup_Type, Home_Team, Away_Team, Over_or_Under_1, Over_Under_Total_1, Over_Under_Line_1, Over_or_Under_2, Over_Under_Total_2, Over_Under_Line_2, event_timestamp, last_updated_timestamp, sport_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)", overunder)
-    #         self.conn.commit()
-    #         logger.info("Successfully inserted data into overunder table")
-    #     except Exception as e:
-    #         logger.error(f"Failed to insert data into overunder table. Error: {e}, data: {overunder}", exc_info=True)
+                            query = """
+                                WITH inserted AS (
+                                    INSERT INTO overunder (
+                                        game_ID, Bookie, Matchup_Type, Home_Team, Away_Team, Over_or_Under_1, 
+                                        Over_Under_Total_1, Over_Under_Line_1, Over_or_Under_2, Over_Under_Total_2, 
+                                        Over_Under_Line_2, event_timestamp, last_updated_timestamp, sport_type
+                                    ) VALUES %s
+                                    ON CONFLICT DO NOTHING
+                                    RETURNING game_ID, Bookie, Matchup_Type, Home_Team, Away_Team, Over_or_Under_1, 
+                                              Over_Under_Total_1, Over_Under_Line_1, Over_or_Under_2, Over_Under_Total_2, 
+                                              Over_Under_Line_2, event_timestamp, last_updated_timestamp, sport_type
+                                )
+                                INSERT INTO latest_overunder (
+                                    game_ID, Bookie, Matchup_Type, Home_Team, Away_Team, Over_or_Under_1, 
+                                    Over_Under_Total_1, Over_Under_Line_1, Over_or_Under_2, Over_Under_Total_2, 
+                                    Over_Under_Line_2, event_timestamp, last_updated_timestamp, sport_type
+                                )
+                                SELECT * FROM inserted
+                                ON CONFLICT DO NOTHING;
+                            """
+                            execute_values(
+                                cursor,
+                                query,
+                                sanitized_batch,
+                                template="(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                            )
+                            logger.info(f"Inserted batch {batch_index + 1} with {len(batch)} rows into overunder and latest_overunder.")
+
+                    self.conn.commit()
+                    logger.info(f"Successfully inserted {len(overunder)} rows into both overunder and latest_overunder tables.")
+                    return
+                except psycopg2.OperationalError as e:
+                    logger.warning(f"Serialization failure on attempt {attempt + 1}/{max_retries}. Retrying...")
+                    self.conn.rollback()
+                    time.sleep(2 ** attempt)
+                except Exception as e:
+                    logger.error(f"Error inserting data into overunder and latest_overunder tables. Full traceback:\n{traceback.format_exc()}")
+                    self.conn.rollback()
+                    raise
+
+            logger.error(f"Failed to insert overunder and latest_overunder after {max_retries} retries.")
+            raise Exception("Max retries exceeded for insert_overunder_and_latest_overunder.")
+        except Exception as e:
+            logger.error(f"Unhandled error in insert_overunder_and_latest_overunder. Full traceback:\n{traceback.format_exc()}")
 
 ### END NFL Overunder Create, insert, Get, Clear
 
@@ -518,31 +652,6 @@ class DB:
 
 
 
-
-    # def insert_NFL_props(self, props):
-    #     """Inserts provided list of tuples of props into DB
-
-    #     Args:
-    #     props (list of tuples): The list of tuples will have the following columns.
-
-    #             - 'game_ID': Unique ID from OddsAPI for a game/event
-    #             - 'last_updated_timestamp': last time updated              
-    #             - 'Bookie': Name of one of 10 bookies included in OddsAPI
-    #             - 'Prop_Type': Type of prop bet being offered
-    #             - 'Bet_Type': "Yes", "over", or "under" given the prop_type
-    #             - 'Player_Name': name of player in the prop bet,
-    #             - 'Betting_Line': betting line for prop bet          
-    #             - 'Betting_Point': number of yards needed, tds, kicks, etc but N/A if not applicable. Ex. anytime TD would be NA
-    #             - 'sport_type': the type of sport for this bet  
-    #     """
-    #     try:
-    #         with self.conn.cursor() as cursor:
-    #             for prop in props:
-    #                 cursor.execute("INSERT INTO props (game_ID, last_updated_timestamp, Bookie, Prop_Type, Bet_Type, Player_Name, Betting_Line, Betting_Point, sport_type) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", prop)
-    #         self.conn.commit()
-    #         logger.info("Successfully inserted nfl props data into props table")
-    #     except Exception as e:
-    #         logger.error(f"Failed to insert nfl props data into props table. Error: {e}, data: {props}", exc_info=True)
 
 #### End NFL Props Create, insert, Get, Clear
 
@@ -840,6 +949,74 @@ class DB:
             logger.info(f"Successfully inserted {len(props)} props into latest_props table.")
         except Exception as e:
             logger.error(f"Error inserting data into latest_props table. Full traceback:\n{traceback.format_exc()}")
+
+    def insert_props_and_latest_props(self, props, batch_size=1000, max_retries=3):
+        """Inserts provided list of props into both 'props' and 'latest_props' tables in batches with retry logic."""
+        try:
+            logger.debug("Splitting data into batches for props and latest_props.")
+            batches = [props[i:i + batch_size] for i in range(0, len(props), batch_size)]
+
+            for attempt in range(max_retries):
+                try:
+                    with self.conn.cursor() as cursor:
+                        for batch_index, batch in enumerate(batches):
+                            logger.debug(f"Inserting batch {batch_index + 1} with {len(batch)} rows.")
+                            sanitized_batch = [
+                                (
+                                    str(row[0]),  # game_ID
+                                    row[1],       # last_updated_timestamp
+                                    str(row[2]),  # bookie
+                                    str(row[3]),  # prop_type
+                                    str(row[4]),  # bet_type
+                                    str(row[5]),  # player_name
+                                    int(row[6]),  # betting_line
+                                    str(row[7]),  # betting_point
+                                    str(row[8])   # sport_type
+                                )
+                                for row in batch
+                            ]
+
+                            query = """
+                                WITH inserted AS (
+                                    INSERT INTO props (
+                                        game_ID, last_updated_timestamp, bookie, prop_type,
+                                        bet_type, player_name, betting_line, betting_point, sport_type
+                                    ) VALUES %s
+                                    ON CONFLICT DO NOTHING
+                                    RETURNING game_ID, last_updated_timestamp, bookie, prop_type,
+                                              bet_type, player_name, betting_line, betting_point, sport_type
+                                )
+                                INSERT INTO latest_props (
+                                    game_ID, last_updated_timestamp, bookie, prop_type,
+                                    bet_type, player_name, betting_line, betting_point, sport_type
+                                )
+                                SELECT * FROM inserted
+                                ON CONFLICT DO NOTHING;
+                            """
+                            execute_values(
+                                cursor,
+                                query,
+                                sanitized_batch,
+                                template="(%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                            )
+                            logger.info(f"Inserted batch {batch_index + 1} with {len(batch)} rows into props and latest_props.")
+
+                    self.conn.commit()
+                    logger.info(f"Successfully inserted {len(props)} props into both props and latest_props tables.")
+                    return
+                except psycopg2.OperationalError as e:
+                    logger.warning(f"Serialization failure on attempt {attempt + 1}/{max_retries}. Retrying...")
+                    self.conn.rollback()
+                    time.sleep(2 ** attempt)
+                except Exception as e:
+                    logger.error(f"Error inserting data into props and latest_props tables. Full traceback:\n{traceback.format_exc()}")
+                    self.conn.rollback()
+                    raise
+
+            logger.error(f"Failed to insert props and latest_props after {max_retries} retries.")
+            raise Exception("Max retries exceeded for insert_props_and_latest_props.")
+        except Exception as e:
+            logger.error(f"Unhandled error in insert_props_and_latest_props. Full traceback:\n{traceback.format_exc()}")
 
 ##### Same tables as insert and create above but will be refreshed with the latest API data
 
@@ -1226,12 +1403,6 @@ class DB:
         try:
             with self.conn.cursor() as cursor:
                 for line in arbitrage:
-                    game_id = line[0]
-                    cursor.execute("SELECT 1 FROM scores WHERE game_id = %s", (game_id,))
-                    if not cursor.fetchone():
-                        logger.warning(f"Game ID {game_id} does not exist in scores. Skipping insertion.")
-                        continue
-
                     cursor.execute("""
                         INSERT INTO arbitrage (
                             game_ID, Prop_Type, Player_Name, Betting_Point, sport_type,

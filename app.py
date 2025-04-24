@@ -24,26 +24,29 @@ def lambda_handler(event=None, context=None):
 
         # Create tables and db
         db.create_db()
-        db.create_NFL_scores()
-        db.create_NFL_upcoming_games()
-        db.create_NFL_spreads()
-        db.create_NFL_moneyline()
-        db.create_NFL_overunder()
-        db.create_NFL_props()
-        db.create_latest_props()
-        db.create_latest_moneyline()
-        db.create_latest_spreads()
-        db.create_latest_overunder()
-        db.create_distinct_props()
-        db.create_latest_EV_moneyline()
-        db.create_latest_EV_props()
-        db.create_arbitrage()
+        # db.create_NFL_scores()
+        # db.create_NFL_upcoming_games()
+        # db.create_NFL_spreads()
+        # db.create_NFL_moneyline()
+        # db.create_NFL_overunder()
+        # db.create_NFL_props()
+        # db.create_latest_props()
+        # db.create_latest_moneyline()
+        # db.create_latest_spreads()
+        # db.create_latest_overunder()
+        # db.create_distinct_props()
+        # db.create_latest_EV_moneyline()
+        # db.create_latest_EV_props()
+        # db.create_arbitrage()
 
         # API Usage from Odds API
         all_game_results = odds_api.filter_scores()
         game_totals, game_spreads, game_lines = odds_api.bookies_and_odds()
         all_prop_bets = odds_api.prop_bets_filters()
         all_event_ids, all_event_details = odds_api.get_events()
+
+        db.insert_NFL_upcoming_games(all_event_details)
+        db.insert_NFL_scores(all_game_results)
 
         arbitage = ArbitrageAnalyzer(all_prop_bets)
         arbitage_props = arbitage.analyze()
@@ -55,8 +58,7 @@ def lambda_handler(event=None, context=None):
         ev_opportunities_prop_results = ExpectedValueAnalyzer(all_prop_bets)
         ev_opportunities_prop = ev_opportunities_prop_results.analyze_prop() 
 
-        
-
+    
         ## remove existing and Insert data into latest_tables for best bets
         VALID_TABLES = ['upcoming_games', 'latest_spreads', 'latest_moneyline', 'latest_overunder', 'latest_props', 'expected_value_moneyline', 'expected_value_props', 'arbitrage']
         for table in VALID_TABLES:
@@ -66,7 +68,7 @@ def lambda_handler(event=None, context=None):
                 logging.error(f'Error with truncating {table} table. Error: {e}')
                 pass
 
-        db.insert_NFL_scores(all_game_results)
+
 
         db.insert_arbitrage(arbitage_props)
 
@@ -74,18 +76,25 @@ def lambda_handler(event=None, context=None):
         db.insert_expected_value_moneyline(ev_opportunities_ml)
         db.insert_expected_value_props(ev_opportunities_prop)
 
-        # insert latest bookie data
-        db.insert_latest_spreads(game_spreads)
-        db.insert_latest_moneyline(game_lines)
-        db.insert_latest_overunder(game_totals)
-        db.insert_latest_props(all_prop_bets)
+        # insert latest bookie data and aggregate props data simultaneously
+        db.insert_props_and_latest_props(all_prop_bets)
+        db.insert_moneyline_and_latest_moneyline(game_lines)
+        db.insert_spreads_and_latest_spreads(game_spreads)
+        db.insert_overunder_and_latest_overunder(game_totals)
+        
+
+
+
+        # db.insert_latest_moneyline(game_lines)
+        # db.insert_latest_spreads(game_spreads)
+        # db.insert_latest_overunder(game_totals)
+
 
         # insert bookie data into aggregate tables
-        db.insert_NFL_upcoming_games(all_event_details)
-        db.insert_NFL_spreads(game_spreads)
-        db.insert_NFL_moneyline(game_lines)
-        db.insert_NFL_overunder(game_totals)
-        db.insert_NFL_props(all_prop_bets)
+        
+        # db.insert_NFL_spreads(game_spreads)
+        # db.insert_NFL_moneyline(game_lines)
+        # db.insert_NFL_overunder(game_totals)
 
         #update unique players in distinct props
         db.update_distinct_props()
