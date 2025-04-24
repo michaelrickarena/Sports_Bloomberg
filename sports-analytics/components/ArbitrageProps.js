@@ -25,6 +25,9 @@ export default function Arbitrage() {
   const [error, setError] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
 
+  const [selectedBookieOne, setSelectedBookieOne] = useState("");
+  const [selectedBookieTwo, setSelectedBookieTwo] = useState("");
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -54,8 +57,28 @@ export default function Arbitrage() {
     setSortConfig({ key, direction });
   };
 
+  const filteredData = useMemo(() => {
+    return data.filter((row) => {
+      if (
+        selectedBookieOne &&
+        row.bookie_one !== selectedBookieOne &&
+        row.bookie_two !== selectedBookieOne
+      ) {
+        return false;
+      }
+      if (
+        selectedBookieTwo &&
+        row.bookie_one !== selectedBookieTwo &&
+        row.bookie_two !== selectedBookieTwo
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [data, selectedBookieOne, selectedBookieTwo]);
+
   const sortedData = useMemo(() => {
-    let sortableItems = [...data];
+    let sortableItems = [...filteredData];
     if (sortConfig.key !== null) {
       sortableItems.sort((a, b) => {
         let aVal = a[sortConfig.key];
@@ -74,7 +97,12 @@ export default function Arbitrage() {
       });
     }
     return sortableItems;
-  }, [data, sortConfig]);
+  }, [filteredData, sortConfig]);
+
+  const uniqueBookies = useMemo(() => {
+    const bookies = data.flatMap((row) => [row.bookie_one, row.bookie_two]);
+    return [...new Set(bookies)].sort();
+  }, [data]);
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
@@ -82,6 +110,43 @@ export default function Arbitrage() {
   return (
     <div className="expectedvalue-sports">
       <h1 className="expectedvalue-sports-title">Arbitrage Opportunities</h1>
+      <h4 className="expectedvalue-sports-content">Bookie Filters</h4>
+
+      <div className="filter-container">
+        <div className="filters">
+          <div className="filter-item">
+            <label htmlFor="bookie-one-select">Bookie One:</label>
+            <select
+              id="bookie-one-select"
+              value={selectedBookieOne}
+              onChange={(e) => setSelectedBookieOne(e.target.value)}
+            >
+              <option value="">All</option>
+              {uniqueBookies.map((bookie) => (
+                <option key={bookie} value={bookie}>
+                  {bookie}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="filter-item">
+            <label htmlFor="bookie-two-select">Bookie Two:</label>
+            <select
+              id="bookie-two-select"
+              value={selectedBookieTwo}
+              onChange={(e) => setSelectedBookieTwo(e.target.value)}
+            >
+              <option value="">All</option>
+              {uniqueBookies.map((bookie) => (
+                <option key={bookie} value={bookie}>
+                  {bookie}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div className="table-container">
         <table border="1" cellPadding="5">
           <thead>
