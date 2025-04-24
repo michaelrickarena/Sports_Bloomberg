@@ -27,6 +27,7 @@ export default function Arbitrage() {
 
   const [selectedBookieOne, setSelectedBookieOne] = useState("");
   const [selectedBookieTwo, setSelectedBookieTwo] = useState("");
+  const [bankroll, setBankroll] = useState(100); // Default bankroll value
 
   useEffect(() => {
     const fetchData = async () => {
@@ -99,6 +100,17 @@ export default function Arbitrage() {
     return sortableItems;
   }, [filteredData, sortConfig]);
 
+  const adjustedData = useMemo(() => {
+    return sortedData.map((row) => {
+      const adjustmentFactor = bankroll / 100;
+      return {
+        ...row,
+        bet_amount_one: row.bet_amount_one * adjustmentFactor,
+        bet_amount_two: row.bet_amount_two * adjustmentFactor,
+      };
+    });
+  }, [sortedData, bankroll]);
+
   const uniqueBookies = useMemo(() => {
     const bookies = data.flatMap((row) => [row.bookie_one, row.bookie_two]);
     return [...new Set(bookies)].sort();
@@ -143,6 +155,16 @@ export default function Arbitrage() {
                 </option>
               ))}
             </select>
+          </div>
+          <div className="filter-item">
+            <label htmlFor="bankroll-input">Bankroll:</label>
+            <input
+              id="bankroll-input"
+              type="number"
+              min="1"
+              value={bankroll === 0 ? "" : bankroll}
+              onChange={(e) => setBankroll(e.target.value === "" ? 0 : Number(e.target.value))}
+            />
           </div>
         </div>
       </div>
@@ -308,7 +330,7 @@ export default function Arbitrage() {
             </tr>
           </thead>
           <tbody>
-            {sortedData.map((row) => (
+            {adjustedData.map((row) => (
               <tr key={row.id}>
                 <td>{row.Player_Name}</td>
                 <td>{formatPropType(row.Prop_Type)}</td>
