@@ -103,10 +103,12 @@ export default function Arbitrage() {
   const adjustedData = useMemo(() => {
     return sortedData.map((row) => {
       const adjustmentFactor = bankroll / 100;
+      const totalReturn = bankroll * (1 + row.profit_percentage / 100);
       return {
         ...row,
         bet_amount_one: row.bet_amount_one * adjustmentFactor,
         bet_amount_two: row.bet_amount_two * adjustmentFactor,
+        totalReturn: totalReturn,
       };
     });
   }, [sortedData, bankroll]);
@@ -163,7 +165,9 @@ export default function Arbitrage() {
               type="number"
               min="1"
               value={bankroll === 0 ? "" : bankroll}
-              onChange={(e) => setBankroll(e.target.value === "" ? 0 : Number(e.target.value))}
+              onChange={(e) =>
+                setBankroll(e.target.value === "" ? 0 : Number(e.target.value))
+              }
             />
           </div>
         </div>
@@ -317,6 +321,12 @@ export default function Arbitrage() {
                   : ""}
               </th>
               <th
+                onClick={() => handleSort("totalReturn")}
+                style={{ cursor: "pointer" }}
+              >
+                Total Return
+              </th>
+              <th
                 onClick={() => handleSort("last_updated_timestamp")}
                 style={{ cursor: "pointer" }}
               >
@@ -345,6 +355,7 @@ export default function Arbitrage() {
                 <td>{row.odds_two}</td>
                 <td>{row.bet_amount_two.toFixed(2)}</td>
                 <td>{row.profit_percentage.toFixed(2)}%</td>
+                <td>{row.totalReturn.toFixed(2)}</td>
                 <td>{new Date(row.last_updated_timestamp).toLocaleString()}</td>
               </tr>
             ))}
