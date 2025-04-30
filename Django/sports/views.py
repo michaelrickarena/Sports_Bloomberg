@@ -53,6 +53,8 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from rest_framework import generics, permissions
+import boto3
+import time
 
 load_dotenv()
 
@@ -137,35 +139,77 @@ class SpreadsListView(APIView):
             cache.set(cache_key, data, timeout=7200)
 
         return Response(data)
-
-
+    
 class PropsListView(APIView):
     def get(self, request):
         player_name = request.query_params.get('player_name')
-        prop_type = request.query_params.get('prop_type')  # Added prop_type parameter
+        prop_type   = request.query_params.get('prop_type')
         page_number = request.query_params.get('page', 1)
-        cache_key = f'props_data_{player_name}_{prop_type}_page_{page_number}'  # Updated cache key
-
-        # Check cache first
+        cache_key   = f'athena_props_{player_name}_{prop_type}_page_{page_number}'
         data = cache.get(cache_key)
         if not data:
-            filters = {}
-            if player_name:
-                filters['player_name__icontains'] = player_name  # Partial match for player name
-            if prop_type:
-                filters['prop_type'] = prop_type  # Filter by prop_type
+            try:
+                # Build WHERE clause
+                wheres = []
+                if player_name:
+                    wheres.append(f"player_name LIKE '%{player_name}%'")
+                if prop_type:
+                    wheres.append(f"prop_type = '{prop_type}'")
+                where_sql = " AND ".join(wheres) if wheres else "1=1"
 
-            # Fetch filtered props
-            props = Props.objects.filter(**filters).order_by('last_updated_timestamp')
+                # Submit Athena query
+                athena = boto3.client('athena', region_name=settings.AWS_DEFAULT_REGION)
+                query = f"""
+                  SELECT * FROM props
+                  WHERE {where_sql}
+                  ORDER BY last_updated_timestamp
+                """
+                resp = athena.start_query_execution(
+                    QueryString=query,
+                    QueryExecutionContext={'Database': 'default'},
+                    ResultConfiguration={'OutputLocation': 's3://sports-data-csv/athena-query-results/'}
+                )
+                qid = resp['QueryExecutionId']
 
-            paginator = PageNumberPagination()
-            paginator.page_size = 250
-            result_page = paginator.paginate_queryset(props, request)
-            serializer = PropsSerializer(result_page, many=True)
-            data = paginator.get_paginated_response(serializer.data).data
-            cache.set(cache_key, data, timeout=7200)
+                # Poll until completion
+                state = 'RUNNING'
+                reason = None
+                while state in ('RUNNING', 'QUEUED'):
+                    time.sleep(1)
+                    resp_status = athena.get_query_execution(QueryExecutionId=qid)
+                    status_info = resp_status['QueryExecution']['Status']
+                    state = status_info['State']
+                    reason = status_info.get('StateChangeReason')
+
+                if state != 'SUCCEEDED':
+                    return Response({
+                        'error': 'Athena query failed',
+                        'state': state,
+                        'reason': reason
+                    }, status=500)
+
+                # Fetch results
+                results = athena.get_query_results(QueryExecutionId=qid)
+                cols = [c['Name'] for c in results['ResultSet']['ResultSetMetadata']['ColumnInfo']]
+                rows = []
+                for row in results['ResultSet']['Rows'][1:]:
+                    vals = [d.get('VarCharValue') for d in row['Data']]
+                    rows.append(dict(zip(cols, vals)))
+
+                # Paginate in-memory
+                paginator = PageNumberPagination()
+                paginator.page_size = 250
+                page = paginator.paginate_queryset(rows, request)
+                data = paginator.get_paginated_response(page).data
+
+                cache.set(cache_key, data, timeout=7200)
+
+            except Exception as e:
+                import traceback; traceback.print_exc()
+                return Response({'error': str(e)}, status=500)
 
         return Response(data)
+
 
 # New View for Chart Data
 class MoneylineChartDataView(APIView):
@@ -428,35 +472,74 @@ class latest_OverunderListView(APIView):
 
 class latest_PropsListView(APIView):
     def get(self, request):
-        # Get query parameters
-        player_name = request.query_params.get('player_name', None)
-        prop_type = request.query_params.get('prop_type', None)
+        player_name = request.query_params.get('player_name')
+        prop_type   = request.query_params.get('prop_type')
+        page_number = request.query_params.get('page', 1)
+        cache_key   = f'athena_props_{player_name}_{prop_type}_page_{page_number}'
+        data = cache.get(cache_key)
+        if not data:
+            try:
+                # Build WHERE clause
+                wheres = []
+                if player_name:
+                    wheres.append(f"player_name LIKE '%{player_name}%'")
+                if prop_type:
+                    wheres.append(f"prop_type = '{prop_type}'")
+                where_sql = " AND ".join(wheres) if wheres else "1=1"
 
-        # Ensure player_name is provided
-        if not player_name:
-            return Response({"error": "player_name parameter is required"}, status=400)
+                # Submit Athena query
+                athena = boto3.client('athena', region_name=settings.AWS_DEFAULT_REGION)
+                query = f"""
+                  SELECT * FROM latest_props
+                  WHERE {where_sql}
+                  ORDER BY last_updated_timestamp
+                """
+                resp = athena.start_query_execution(
+                    QueryString=query,
+                    QueryExecutionContext={'Database': 'default'},
+                    ResultConfiguration={'OutputLocation': 's3://sports-data-csv/athena-query-results/'}
+                )
+                qid = resp['QueryExecutionId']
 
-        # Filter by player_name
-        latest_props = latest_Props.objects.filter(player_name__icontains=player_name)
+                # Poll until completion
+                state = 'RUNNING'
+                reason = None
+                while state in ('RUNNING', 'QUEUED'):
+                    time.sleep(1)
+                    resp_status = athena.get_query_execution(QueryExecutionId=qid)
+                    status_info = resp_status['QueryExecution']['Status']
+                    state = status_info['State']
+                    reason = status_info.get('StateChangeReason')
 
-        # If prop_type is provided, filter further by prop_type
-        if prop_type:
-            latest_props = latest_props.filter(prop_type__icontains=prop_type)
+                if state != 'SUCCEEDED':
+                    return Response({
+                        'error': 'Athena query failed',
+                        'state': state,
+                        'reason': reason
+                    }, status=500)
 
-            # Return all rows (full details) if both filters are applied
-            serializer = latest_PropsSerializer(latest_props, many=True)
-            return Response(serializer.data)
+                # Fetch results
+                results = athena.get_query_results(QueryExecutionId=qid)
+                cols = [c['Name'] for c in results['ResultSet']['ResultSetMetadata']['ColumnInfo']]
+                rows = []
+                for row in results['ResultSet']['Rows'][1:]:
+                    vals = [d.get('VarCharValue') for d in row['Data']]
+                    rows.append(dict(zip(cols, vals)))
 
-        # If only player_name is provided, return unique prop_types
-        unique_prop_types = latest_props.values_list('prop_type', flat=True).distinct()
+                # Paginate in-memory
+                paginator = PageNumberPagination()
+                paginator.page_size = 250
+                page = paginator.paginate_queryset(rows, request)
+                data = paginator.get_paginated_response(page).data
 
-        # Paginate the results
-        paginator = PageNumberPagination()
-        paginator.page_size = 100
-        result_page = paginator.paginate_queryset(unique_prop_types, request)
+                cache.set(cache_key, data, timeout=7200)
 
-        # Return the paginated response
-        return paginator.get_paginated_response(result_page)
+            except Exception as e:
+                import traceback; traceback.print_exc()
+                return Response({'error': str(e)}, status=500)
+
+        return Response(data)
+
 
 
 

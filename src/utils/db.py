@@ -950,7 +950,7 @@ class DB:
         except Exception as e:
             logger.error(f"Error inserting data into latest_props table. Full traceback:\n{traceback.format_exc()}")
 
-    def insert_props_and_latest_props(self, props, batch_size=1000, max_retries=3):
+    def insert_props_and_latest_props(self, props, batch_size=5000, max_retries=3):
         """Inserts provided list of props into both 'props' and 'latest_props' tables in batches with retry logic."""
         try:
             logger.debug("Splitting data into batches for props and latest_props.")
