@@ -146,69 +146,88 @@ class PropsListView(APIView):
         prop_type   = request.query_params.get('prop_type')
         page_number = request.query_params.get('page', 1)
         cache_key   = f'athena_props_{player_name}_{prop_type}_page_{page_number}'
-        data = cache.get(cache_key)
-        if not data:
-            try:
-                # Build WHERE clause
-                wheres = []
-                if player_name:
-                    wheres.append(f"player_name LIKE '%{player_name}%'")
-                if prop_type:
-                    wheres.append(f"prop_type = '{prop_type}'")
-                where_sql = " AND ".join(wheres) if wheres else "1=1"
 
-                # Submit Athena query
-                athena = boto3.client('athena', region_name=settings.AWS_DEFAULT_REGION)
-                query = f"""
-                  SELECT * FROM props
-                  WHERE {where_sql}
-                  ORDER BY last_updated_timestamp
-                """
-                resp = athena.start_query_execution(
-                    QueryString=query,
-                    QueryExecutionContext={'Database': 'default'},
-                    ResultConfiguration={'OutputLocation': 's3://sports-data-csv/athena-query-results/'}
-                )
-                qid = resp['QueryExecutionId']
+        # Attempt to fetch from cache
+        cached = cache.get(cache_key)
+        if cached is not None:
+            # For paginated case, must be dict
+            if player_name and prop_type:
+                if isinstance(cached, dict):
+                    return Response(cached)
+                else:
+                    cache.delete(cache_key)
+            else:
+                # For other cases, must be list
+                if isinstance(cached, list):
+                    return Response(cached)
+                else:
+                    cache.delete(cache_key)
 
-                # Poll until completion
-                state = 'RUNNING'
-                reason = None
-                while state in ('RUNNING', 'QUEUED'):
-                    time.sleep(1)
-                    resp_status = athena.get_query_execution(QueryExecutionId=qid)
-                    status_info = resp_status['QueryExecution']['Status']
-                    state = status_info['State']
-                    reason = status_info.get('StateChangeReason')
+        try:
+            # Build WHERE clause
+            wheres = []
+            if player_name:
+                wheres.append(f"player_name LIKE '%{player_name}%'" )
+            if prop_type:
+                wheres.append(f"prop_type = '{prop_type}'")
+            where_sql = " AND ".join(wheres) if wheres else "1=1"
 
-                if state != 'SUCCEEDED':
-                    return Response({
-                        'error': 'Athena query failed',
-                        'state': state,
-                        'reason': reason
-                    }, status=500)
+            # Execute Athena query
+            athena = boto3.client('athena', region_name=settings.AWS_DEFAULT_REGION)
+            query = f"""
+                SELECT * FROM props
+                WHERE {where_sql}
+                ORDER BY last_updated_timestamp
+            """
+            resp = athena.start_query_execution(
+                QueryString=query,
+                QueryExecutionContext={'Database': 'default'},
+                ResultConfiguration={'OutputLocation': 's3://sports-data-csv/athena-query-results/'}
+            )
+            qid = resp['QueryExecutionId']
+            state = 'RUNNING'
+            while state in ('RUNNING', 'QUEUED'):
+                time.sleep(1)
+                status = athena.get_query_execution(QueryExecutionId=qid)['QueryExecution']['Status']
+                state = status['State']
+            if state != 'SUCCEEDED':
+                reason = status.get('StateChangeReason')
+                return Response({'error': 'Athena query failed', 'state': state, 'reason': reason}, status=500)
 
-                # Fetch results
-                results = athena.get_query_results(QueryExecutionId=qid)
-                cols = [c['Name'] for c in results['ResultSet']['ResultSetMetadata']['ColumnInfo']]
-                rows = []
-                for row in results['ResultSet']['Rows'][1:]:
-                    vals = [d.get('VarCharValue') for d in row['Data']]
-                    rows.append(dict(zip(cols, vals)))
+            # Process results
+            result = athena.get_query_results(QueryExecutionId=qid)
+            cols = [c['Name'] for c in result['ResultSet']['ResultSetMetadata']['ColumnInfo']]
+            rows = []
+            for r in result['ResultSet']['Rows'][1:]:
+                vals = [d.get('VarCharValue') for d in r['Data']]
+                item = dict(zip(cols, vals))
+                # Rename & cast
+                if 'game_id' in item:
+                    item['game'] = item.pop('game_id')
+                if 'betting_line' in item and item['betting_line'] is not None:
+                    try:
+                        item['betting_line'] = int(float(item['betting_line']))
+                    except (ValueError, TypeError):
+                        item['betting_line'] = None
+                rows.append(item)
 
-                # Paginate in-memory
+            # Branch on pagination criteria
+            if player_name and prop_type:
+                # Paginate rows
                 paginator = PageNumberPagination()
                 paginator.page_size = 250
                 page = paginator.paginate_queryset(rows, request)
-                data = paginator.get_paginated_response(page).data
+                response = paginator.get_paginated_response(page)
+                cache.set(cache_key, response.data, timeout=7200)
+                return response
+            else:
+                # Return raw list
+                cache.set(cache_key, rows, timeout=7200)
+                return Response(rows)
 
-                cache.set(cache_key, data, timeout=7200)
-
-            except Exception as e:
-                import traceback; traceback.print_exc()
-                return Response({'error': str(e)}, status=500)
-
-        return Response(data)
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
 
 
 # New View for Chart Data
@@ -473,74 +492,99 @@ class latest_OverunderListView(APIView):
 class latest_PropsListView(APIView):
     def get(self, request):
         player_name = request.query_params.get('player_name')
-        prop_type   = request.query_params.get('prop_type')
+        prop_type = request.query_params.get('prop_type')
         page_number = request.query_params.get('page', 1)
-        cache_key   = f'athena_props_{player_name}_{prop_type}_page_{page_number}'
-        data = cache.get(cache_key)
-        if not data:
-            try:
-                # Build WHERE clause
+
+        # Determine mode and cache key
+        is_unique_prop_types = bool(player_name and not prop_type)
+        cache_key = (
+            f'athena_unique_prop_types_{player_name}_page_{page_number}'
+            if is_unique_prop_types
+            else f'athena_props_{player_name}_{prop_type}_page_{page_number}'
+        )
+
+        # Retrieve from cache
+        cached = cache.get(cache_key)
+        # For specific prop_type, only accept list cache, not paginated dict
+        if prop_type and player_name:
+            if isinstance(cached, list):
+                return Response(cached)
+        else:
+            if cached:
+                return Response(cached)
+
+        try:
+            # Build Athena query
+            if is_unique_prop_types:
+                query = f"""
+                    SELECT DISTINCT prop_type FROM latest_props
+                    WHERE player_name LIKE '%{player_name}%'
+                    ORDER BY prop_type
+                """
+            else:
                 wheres = []
                 if player_name:
-                    wheres.append(f"player_name LIKE '%{player_name}%'")
+                    wheres.append(f"player_name LIKE '%{player_name}%'" )
                 if prop_type:
                     wheres.append(f"prop_type = '{prop_type}'")
                 where_sql = " AND ".join(wheres) if wheres else "1=1"
-
-                # Submit Athena query
-                athena = boto3.client('athena', region_name=settings.AWS_DEFAULT_REGION)
                 query = f"""
-                  SELECT * FROM latest_props
-                  WHERE {where_sql}
-                  ORDER BY last_updated_timestamp
+                    SELECT * FROM latest_props
+                    WHERE {where_sql}
+                    ORDER BY last_updated_timestamp
                 """
-                resp = athena.start_query_execution(
-                    QueryString=query,
-                    QueryExecutionContext={'Database': 'default'},
-                    ResultConfiguration={'OutputLocation': 's3://sports-data-csv/athena-query-results/'}
-                )
-                qid = resp['QueryExecutionId']
 
-                # Poll until completion
-                state = 'RUNNING'
-                reason = None
-                while state in ('RUNNING', 'QUEUED'):
-                    time.sleep(1)
-                    resp_status = athena.get_query_execution(QueryExecutionId=qid)
-                    status_info = resp_status['QueryExecution']['Status']
-                    state = status_info['State']
-                    reason = status_info.get('StateChangeReason')
+            # Execute Athena query
+            athena = boto3.client('athena', region_name=settings.AWS_DEFAULT_REGION)
+            resp = athena.start_query_execution(
+                QueryString=query,
+                QueryExecutionContext={'Database': 'default'},
+                ResultConfiguration={'OutputLocation': 's3://sports-data-csv/athena-query-results/'}
+            )
+            qid = resp['QueryExecutionId']
+            state = 'RUNNING'
+            while state in ('RUNNING', 'QUEUED'):
+                time.sleep(1)
+                status = athena.get_query_execution(QueryExecutionId=qid)['QueryExecution']['Status']
+                state = status['State']
+            if state != 'SUCCEEDED':
+                reason = status.get('StateChangeReason')
+                return Response({'error': 'Athena query failed', 'state': state, 'reason': reason}, status=500)
 
-                if state != 'SUCCEEDED':
-                    return Response({
-                        'error': 'Athena query failed',
-                        'state': state,
-                        'reason': reason
-                    }, status=500)
+            # Fetch and process results
+            res = athena.get_query_results(QueryExecutionId=qid)
+            cols = [c['Name'] for c in res['ResultSet']['ResultSetMetadata']['ColumnInfo']]
+            rows = []
+            for r in res['ResultSet']['Rows'][1:]:
+                vals = [d.get('VarCharValue') for d in r['Data']]
+                record = dict(zip(cols, vals))
+                # Rename and cast
+                if 'game_id' in record:
+                    record['game'] = record.pop('game_id')
+                if record.get('betting_line') is not None:
+                    try:
+                        record['betting_line'] = int(float(record['betting_line']))
+                    except (ValueError, TypeError):
+                        record['betting_line'] = None
+                rows.append(record)
 
-                # Fetch results
-                results = athena.get_query_results(QueryExecutionId=qid)
-                cols = [c['Name'] for c in results['ResultSet']['ResultSetMetadata']['ColumnInfo']]
-                rows = []
-                for row in results['ResultSet']['Rows'][1:]:
-                    vals = [d.get('VarCharValue') for d in row['Data']]
-                    rows.append(dict(zip(cols, vals)))
+            # Specific prop_type: return raw list and cache
+            if prop_type and player_name:
+                cache.set(cache_key, rows, timeout=7200)
+                return Response(rows)
 
-                # Paginate in-memory
-                paginator = PageNumberPagination()
-                paginator.page_size = 250
-                page = paginator.paginate_queryset(rows, request)
-                data = paginator.get_paginated_response(page).data
+            # Unique prop types: paginate list of prop_type strings
+            items = [r['prop_type'] for r in rows]
+            paginator = PageNumberPagination()
+            paginator.page_size = 250
+            page = paginator.paginate_queryset(items, request)
+            paginated_response = paginator.get_paginated_response(page)
+            cache.set(cache_key, paginated_response.data, timeout=7200)
+            return paginated_response
 
-                cache.set(cache_key, data, timeout=7200)
-
-            except Exception as e:
-                import traceback; traceback.print_exc()
-                return Response({'error': str(e)}, status=500)
-
-        return Response(data)
-
-
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
 
 
 class latest_SpreadsListView(APIView):
@@ -1157,8 +1201,6 @@ class UserBetListView(APIView):
         print("User Bets Data:", serializer.data)
         
         return Response(serializer.data, status=status.HTTP_200_OK)
-
-
 
 class UserBetDeleteView(APIView):
     permission_classes = [IsAuthenticated]

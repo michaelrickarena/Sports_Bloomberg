@@ -302,48 +302,64 @@ class Odds_API:
 # above done
 
     def prop_bets_filters(self):
+        """Collect all prop bets and unique player prop data for database insertion."""
+        
         props_data = self.get_props()
         all_prop_bets = []
-
+        unique_player_props = []
+        
         try:
             for data in props_data:
-                if len(data['bookmakers']) == 0:
-                    pass
-                else:
-                    game_id = data['id']
-                    sport_type = data['sport_key']
-                    all_props = data['bookmakers']
-                    for bookie_type in all_props:
-                        bookie = bookie_type['key']
-                        for prop in bookie_type['markets']:
-                            prop_type = prop['key']
-                            last_update = prop['last_update']
-                            for betting_lines in prop['outcomes']:
-                                name = betting_lines['name']
-                                description = betting_lines['description']
-                                price = betting_lines['price']
-                                try:
-                                    point = betting_lines['point']
-                                except:
-                                    point = 'N/A'
-
-                                all_prop_bets.append((
-                                            game_id,
-                                            last_update,
-                                            bookie,
-                                            prop_type,
-                                            name,
-                                            description,
-                                            price,
-                                            point,
-                                            sport_type
+                if not data.get('bookmakers'):
+                    continue
+                    
+                game_id = data['id']
+                sport_type = data['sport_key']
+                
+                for bookie_type in data['bookmakers']:
+                    bookie = bookie_type['key']
+                    for prop in bookie_type['markets']:
+                        prop_type = prop['key']
+                        last_update = prop.get('last_update', '')
+                        
+                        for betting_line in prop['outcomes']:
+                            name = betting_line.get('name')
+                            description = betting_line.get('description')
+                            price = betting_line.get('price')
+                            point = betting_line.get('point', 'N/A')
+                            
+                            # Collect all prop bets
+                            all_prop_bets.append((
+                                game_id,
+                                last_update,
+                                bookie,
+                                prop_type,
+                                name,
+                                description,
+                                price,
+                                point,
+                                sport_type
+                            ))
+                            
+                            # Collect unique player props
+                            # Use description for player name, except for specific markets
+                            player_name = name if prop_type in ['first_goal_scorer', 'anytime_goal'] else description
+                            
+                            # Validate player_name and ensure uniqueness
+                            if player_name and player_name not in ['Over', 'Under', 'Yes', 'No'] and (player_name, game_id) not in [(p[0], p[1]) for p in unique_player_props]:
+                                unique_player_props.append((
+                                    player_name,   # Player name
+                                    game_id,       # Game ID
+                                    sport_type,    # Sport type
+                                    last_update    # Market's last_update timestamp
                                 ))
-
+            
+            logger.info(f"Collected {len(all_prop_bets)} prop bets and {len(unique_player_props)} unique player props")
+            
         except Exception as e:
-            logger.error(f"Failed to filter prop bets. Error: {e}")
-        length_of_props = len(all_prop_bets)
-        logger.info(f"number of rows being inserted: {length_of_props}")
-        return all_prop_bets
+            logger.error(f"Failed to filter prop bets or player props. Error: {e}")
+        
+        return all_prop_bets, unique_player_props
 
     def filter_scores(self):
         scores = self.get_scores()  # Assume this gets your API scores
@@ -380,6 +396,7 @@ class Odds_API:
             logger.error(f"Failed to filter game scores. Error: {e}")
 
         return all_game_results
+
 
 
 # api = Odds_API()

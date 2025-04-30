@@ -617,31 +617,51 @@ class DB:
             logger.error(f"Error creating distinct_props table. Error: {e}", exc_info=True)
 
 
-    def update_distinct_props(self):
-        """ Update distinct_props table with unique values from the main props table """
+    def update_distinct_props(self, unique_player_props):
+        """Update distinct_props table with unique player props from provided data"""
         try:
             with self.conn.cursor() as cursor:
-                # Delete players who no longer have props
-                cursor.execute("""
-                    DELETE FROM distinct_props
-                    WHERE (player_name, game_ID, sport_type) NOT IN (
-                        SELECT DISTINCT player_name, game_ID, sport_type
-                        FROM props
-                    );
-                """)
-
-                # Insert/update players who currently have props bets into the distinct_props table
-                cursor.execute("""
-                    INSERT INTO distinct_props (player_name, game_ID, sport_type)
-                    SELECT DISTINCT player_name, game_ID, sport_type
-                    FROM props
-                    ON CONFLICT (player_name, game_ID, sport_type) DO UPDATE
-                    SET last_updated = CURRENT_TIMESTAMP;
-                """)
+                if not unique_player_props:
+                    # If no props, clear the table
+                    cursor.execute("DELETE FROM distinct_props;")
+                else:
+                    # Convert unique_player_props to a VALUES clause
+                    values_clause = ",".join(
+                        f"(%s, %s, %s, %s)" for _ in unique_player_props
+                    )
+                    flat_values = [
+                        val for prop in unique_player_props for val in prop
+                    ]
+                    
+                    # Delete rows not in unique_player_props
+                    cursor.execute(
+                        f"""
+                        DELETE FROM distinct_props
+                        WHERE (player_name, game_ID, sport_type) NOT IN (
+                            SELECT player_name, game_ID, sport_type
+                            FROM (VALUES {values_clause}) AS t(player_name, game_ID, sport_type, last_updated)
+                        );
+                        """,
+                        flat_values
+                    )
+                    
+                    # Insert/update rows from unique_player_props
+                    cursor.execute(
+                        f"""
+                        INSERT INTO distinct_props (player_name, game_ID, sport_type, last_updated)
+                        VALUES {values_clause}
+                        ON CONFLICT (player_name, game_ID, sport_type) DO UPDATE
+                        SET last_updated = EXCLUDED.last_updated;
+                        """,
+                        flat_values
+                    )
+                
             self.conn.commit()
-            logger.info("Successfully updated distinct_props table.")
+            logger.info(f"Successfully updated distinct_props table with {len(unique_player_props)} unique player props")
+            
         except Exception as e:
             logger.error(f"Error updating distinct_props table. Error: {e}", exc_info=True)
+            self.conn.rollback()
 
 
 
