@@ -16,8 +16,9 @@ if os.environ.get("AWS_EXECUTION_ENV") is None:
    from dotenv import load_dotenv
    from src.visualizations.graph_details import plot_moneyline
    load_dotenv()
-   ATHENA_DATABASE = os.environ.get("ATHENA_DATABASE")
-   ATHENA_OUTPUT_LOCATION = os.environ.get("ATHENA_OUTPUT_LOCATION")
+   
+ATHENA_DATABASE = os.environ["ATHENA_DATABASE"]
+ATHENA_OUTPUT_LOCATION = os.environ["ATHENA_OUTPUT_LOCATION"]
 
 # Initialize S3 client
 s3_client = boto3.client('s3')
