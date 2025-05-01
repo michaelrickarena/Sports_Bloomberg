@@ -142,9 +142,6 @@ class SpreadsListView(APIView):
     
 class PropsListView(APIView):
     def get(self, request):
-        print("AWS_ACCESS_KEY_ID:", os.getenv("AWS_ACCESS_KEY_ID"))
-        print("AWS_SECRET_ACCESS_KEY:", os.getenv("AWS_SECRET_ACCESS_KEY"))
-        print("AWS_DEFAULT_REGION:", settings.AWS_DEFAULT_REGION)
         player_name = request.query_params.get('player_name')
         prop_type   = request.query_params.get('prop_type')
         page_number = request.query_params.get('page', 1)
@@ -494,10 +491,6 @@ class latest_OverunderListView(APIView):
 
 class latest_PropsListView(APIView):
     def get(self, request):
-
-        print("AWS_ACCESS_KEY_ID:", os.getenv("AWS_ACCESS_KEY_ID"))
-        print("AWS_SECRET_ACCESS_KEY:", os.getenv("AWS_SECRET_ACCESS_KEY"))
-        print("AWS_DEFAULT_REGION:", settings.AWS_DEFAULT_REGION)
         player_name = request.query_params.get('player_name')
         prop_type = request.query_params.get('prop_type')
         page_number = request.query_params.get('page', 1)
