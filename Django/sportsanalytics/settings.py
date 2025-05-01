@@ -29,6 +29,13 @@ STRIPE_TEST_PUBLIC_KEY = os.getenv('STRIPE_TEST_PUBLIC_KEY')
 STRIPE_TEST_SECRET_KEY = os.getenv('STRIPE_TEST_SECRET_KEY')
 STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET')
 
+
+AWS_ACCESS_KEY_ID = os.getenv('access_key')
+AWS_SECRET_ACCESS_KEY = os.getenv('secret_access_key')
+AWS_DEFAULT_REGION = os.getenv('AWS_DEFAULT_REGION')
+AWS_STORAGE_BUCKET_NAME = os.getenv('S3_BUCKET_NAME')
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
