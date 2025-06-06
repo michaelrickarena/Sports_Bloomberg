@@ -58,7 +58,7 @@ def lambda_handler(event=None, context=None):
         all_prop_bets, unique_player_props = odds_api.prop_bets_filters()
         all_event_ids, all_event_details = odds_api.get_events()
 
-        db.insert_NFL_upcoming_games(all_event_details)
+        
         db.insert_NFL_scores(all_game_results)
 
         arbitage = ArbitrageAnalyzer(all_prop_bets)
@@ -87,6 +87,7 @@ def lambda_handler(event=None, context=None):
                 pass
 
         clean_tables('upcoming_games')
+        db.insert_NFL_upcoming_games(all_event_details)
         clean_tables('arbitrage')
         db.insert_arbitrage(arbitage_props)
         # Insert data into Postgresql tables for expected value
@@ -129,7 +130,7 @@ def lambda_handler(event=None, context=None):
         if db:
             db.close_connection()
 
-def save_and_upload_props_to_s3(all_prop_bets, bucket_name, max_files=24,
+def save_and_upload_props_to_s3(all_prop_bets, bucket_name, max_files=48,
                                 prefix="props/", latest_prefix="latest-props/"):
     """Saves prop bets to S3 and repairs Athena tables when CSVs update."""
     try:
