@@ -1,4 +1,5 @@
-import { Base } from "../components/templates/Base";
+import { Base } from '../templates/Base';
+
 const Index = () => <Base />;
 
 export default Index;
