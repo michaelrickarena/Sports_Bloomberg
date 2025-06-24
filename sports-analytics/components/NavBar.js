@@ -61,7 +61,7 @@ const NavBar = () => {
         <Link href="/">
           <Image
             src="/assets/images/logo-big.png"
-            alt="Logo"
+            alt="Logo-big"
             width={175}
             height={175}
             className="inline-block align-middle rounded-md"
