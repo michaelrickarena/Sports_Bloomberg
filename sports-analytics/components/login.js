@@ -55,7 +55,7 @@ const Login = () => {
         }
 
         // Redirect to homepage - Original kept
-        router.push("/");
+        router.push("/expected-value");
         // refresh for styles
         setTimeout(() => {
           window.location.reload();

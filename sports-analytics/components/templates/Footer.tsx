@@ -10,13 +10,13 @@ const Footer = () => (
     <Section>
       <CenteredFooter logo={<></>} iconList={<></>}>
         <li className="mx-4">
-          <Link href="/">Home</Link>
-        </li>
-        <li className="mx-4">
           <Link href="/termsandconditions">Terms and Conditions</Link>
         </li>
         <li className="mx-4">
-          <Link href="/">Contact Us</Link>
+          <Link href="/blogs">Blogs</Link>
+        </li>
+        <li className="mx-4">
+          <Link href="/">Learn More</Link>
         </li>
         <li className="mx-4">
           <Link href="/register">Start Free Trial</Link>

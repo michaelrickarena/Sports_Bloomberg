@@ -23,7 +23,7 @@ const VerticalFeatures = () => (
     <VerticalFeatureRow
       title="Sports & Bookmaker Trends"
       description="Track performance over time with intuitive line graphs. Enter wagers at the right time and identify profitable patterns with ease."
-      image="/assets/images/feature2.svg"
+      image="/assets/images/Moneyline_Graph.png"
       imageAlt="Second feature alt text"
       reverse
     />

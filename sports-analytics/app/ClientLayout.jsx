@@ -26,6 +26,22 @@ function LayoutContent({ children }) {
         "/password-reset-confirm",
         "/termsandconditions",
         "/privacy",
+        "/calculators/arbitrage",
+        "/calculators/expected-value",
+        "/calculators/hedge",
+        "/calculators/implied-odds",
+        "/calculators/kelly-criterion",
+        "/calculators/no-vig",
+        "/calculators/odds-conversion",
+        "/calculators/parlay",
+        "/blogs/arbitrage",
+        "/blogs/expected-value",
+        "/blogs/historical-data",
+        "/blogs/implied-odds",
+        "/blogs/kelly-criterion",
+        "/blogs/no-vig",
+        "/blogs/z-score",
+        "/blogs",
       ];
 
       const isPublicPath =
