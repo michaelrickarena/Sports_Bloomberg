@@ -56,10 +56,7 @@ const Login = () => {
 
         // Redirect to homepage - Original kept
         router.push("/expected-value");
-        // refresh for styles
-        setTimeout(() => {
-          window.location.reload();
-        }, 100);
+        // Do NOT reload the window. The app's auth logic will handle access control
       } else {
         console.log("[LOGIN COMPONENT] Login failed:", data.detail);
         setError(
