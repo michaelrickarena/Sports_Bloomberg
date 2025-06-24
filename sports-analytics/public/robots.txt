@@ -28,3 +28,5 @@ Disallow: /password-reset-confirm
 Disallow: /register
 Disallow: /success
 Disallow: /verify-email
+
+Sitemap: https://www.thesmartlines.com/sitemap.xml

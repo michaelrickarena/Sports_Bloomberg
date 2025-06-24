@@ -71,6 +71,20 @@ function LayoutContent({ children }) {
     <div>Loading...</div>
   ) : (
     <>
+      <Script
+        id="org-ld-json"
+        type="application/ld+json"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "The Smart Lines",
+            url: "https://www.thesmartlines.com",
+            logo: "https://www.thesmartlines.com/assets/images/logo-small.png",
+          }),
+        }}
+      />
       <NavBar />
       {children}
     </>
