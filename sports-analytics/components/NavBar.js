@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import Cookies from "js-cookie";
+import Image from "next/image";
 import styles from "../styles/NavBar.module.css";
 
 const NavBar = () => {
@@ -15,13 +16,9 @@ const NavBar = () => {
   const [showDropdownMLB, setShowDropdownMLB] = useState(false);
   const [showDropdownNBA, setShowDropdownNBA] = useState(false);
   const [showDropdownArbitrage, setShowDropdownArbitrage] = useState(false);
+  const [showDropdownCalculators, setShowDropdownCalculators] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   useEffect(() => {
     const token = Cookies.get("access_token");
@@ -29,15 +26,14 @@ const NavBar = () => {
   }, [pathname]);
 
   useEffect(() => {
-    if (isMounted) {
-      setIsMenuOpen(false);
-      setShowDropdown(false);
-      setShowDropdownNHL(false);
-      setShowDropdownMLB(false);
-      setShowDropdownNBA(false);
-      setShowDropdownArbitrage(false);
-    }
-  }, [pathname, isMounted]);
+    setIsMenuOpen(false);
+    setShowDropdown(false);
+    setShowDropdownNHL(false);
+    setShowDropdownMLB(false);
+    setShowDropdownNBA(false);
+    setShowDropdownArbitrage(false);
+    setShowDropdownCalculators(false);
+  }, [pathname]);
 
   const handleLogout = () => {
     Cookies.remove("access_token");
@@ -58,17 +54,25 @@ const NavBar = () => {
     setter(!current);
   };
 
-  if (!isMounted) {
-    return null;
-  }
-
   return (
-    <nav className={styles.nav}>
-      <div className={styles.alwaysVisible}>
-        <Link href="/">Home</Link>
-        <Link href="/expected-value">Expected Value</Link>
+    <nav className={styles.nav + " flex items-center"}>
+      {/* Always visible: Logo and Home */}
+      <div className="flex items-center gap-2 pl-2 py-1">
+        <Link href="/">
+          <Image
+            src="/assets/images/logo-small.png"
+            alt="Logo"
+            width={36}
+            height={36}
+            className="inline-block align-middle rounded-full"
+            priority
+          />
+        </Link>
+        <Link href="/" className="ml-2 mr-4">
+          Home
+        </Link>
       </div>
-
+      {/* Hamburger for mobile */}
       <div
         className={styles.hamburger}
         onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -77,24 +81,28 @@ const NavBar = () => {
         <span></span>
         <span></span>
       </div>
-
-      <ul className={`${styles.navList} ${isMenuOpen ? styles.open : ""}`}>
-        <li className={styles.navItem}>
-          <Link href="/">Home</Link>
-        </li>
+      {/* Nav list: all nav items except Home, hidden on mobile unless hamburger is open */}
+      <ul
+        className={`${styles.navList} ${isMenuOpen ? styles.open : ""}`}
+        style={{ width: "100%" }}
+      >
+        {/* Expected Value */}
         <li className={styles.navItem}>
           <Link href="/expected-value">Expected Value</Link>
         </li>
-
         {/* NFL Dropdown */}
         <li
           className={styles.navItem}
-          onMouseEnter={() => setShowDropdown(true)}
-          onMouseLeave={() => setShowDropdown(false)}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDropdownToggle(setShowDropdown, showDropdown);
-          }}
+          onMouseEnter={!isMenuOpen ? () => setShowDropdown(true) : undefined}
+          onMouseLeave={!isMenuOpen ? () => setShowDropdown(false) : undefined}
+          onClick={
+            isMenuOpen
+              ? (e) => {
+                  e.stopPropagation();
+                  handleDropdownToggle(setShowDropdown, showDropdown);
+                }
+              : undefined
+          }
         >
           <span className={styles.navLink}>NFL</span>
           {showDropdown && (
@@ -118,12 +126,20 @@ const NavBar = () => {
         {/* NHL Dropdown */}
         <li
           className={styles.navItem}
-          onMouseEnter={() => setShowDropdownNHL(true)}
-          onMouseLeave={() => setShowDropdownNHL(false)}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDropdownToggle(setShowDropdownNHL, showDropdownNHL);
-          }}
+          onMouseEnter={
+            !isMenuOpen ? () => setShowDropdownNHL(true) : undefined
+          }
+          onMouseLeave={
+            !isMenuOpen ? () => setShowDropdownNHL(false) : undefined
+          }
+          onClick={
+            isMenuOpen
+              ? (e) => {
+                  e.stopPropagation();
+                  handleDropdownToggle(setShowDropdownNHL, showDropdownNHL);
+                }
+              : undefined
+          }
         >
           <span className={styles.navLink}>NHL</span>
           {showDropdownNHL && (
@@ -147,12 +163,20 @@ const NavBar = () => {
         {/* MLB Dropdown */}
         <li
           className={styles.navItem}
-          onMouseEnter={() => setShowDropdownMLB(true)}
-          onMouseLeave={() => setShowDropdownMLB(false)}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDropdownToggle(setShowDropdownMLB, showDropdownMLB);
-          }}
+          onMouseEnter={
+            !isMenuOpen ? () => setShowDropdownMLB(true) : undefined
+          }
+          onMouseLeave={
+            !isMenuOpen ? () => setShowDropdownMLB(false) : undefined
+          }
+          onClick={
+            isMenuOpen
+              ? (e) => {
+                  e.stopPropagation();
+                  handleDropdownToggle(setShowDropdownMLB, showDropdownMLB);
+                }
+              : undefined
+          }
         >
           <span className={styles.navLink}>MLB</span>
           {showDropdownMLB && (
@@ -176,12 +200,20 @@ const NavBar = () => {
         {/* NBA Dropdown */}
         <li
           className={styles.navItem}
-          onMouseEnter={() => setShowDropdownNBA(true)}
-          onMouseLeave={() => setShowDropdownNBA(false)}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDropdownToggle(setShowDropdownNBA, showDropdownNBA);
-          }}
+          onMouseEnter={
+            !isMenuOpen ? () => setShowDropdownNBA(true) : undefined
+          }
+          onMouseLeave={
+            !isMenuOpen ? () => setShowDropdownNBA(false) : undefined
+          }
+          onClick={
+            isMenuOpen
+              ? (e) => {
+                  e.stopPropagation();
+                  handleDropdownToggle(setShowDropdownNBA, showDropdownNBA);
+                }
+              : undefined
+          }
         >
           <span className={styles.navLink}>NBA</span>
           {showDropdownNBA && (
@@ -205,15 +237,23 @@ const NavBar = () => {
         {/* Arbitrage Dropdown */}
         <li
           className={styles.navItem}
-          onMouseEnter={() => setShowDropdownArbitrage(true)}
-          onMouseLeave={() => setShowDropdownArbitrage(false)}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDropdownToggle(
-              setShowDropdownArbitrage,
-              showDropdownArbitrage
-            );
-          }}
+          onMouseEnter={
+            !isMenuOpen ? () => setShowDropdownArbitrage(true) : undefined
+          }
+          onMouseLeave={
+            !isMenuOpen ? () => setShowDropdownArbitrage(false) : undefined
+          }
+          onClick={
+            isMenuOpen
+              ? (e) => {
+                  e.stopPropagation();
+                  handleDropdownToggle(
+                    setShowDropdownArbitrage,
+                    showDropdownArbitrage
+                  );
+                }
+              : undefined
+          }
         >
           <span className={styles.navLink}>Arbitrage</span>
           {showDropdownArbitrage && (
@@ -228,6 +268,66 @@ const NavBar = () => {
           )}
         </li>
 
+        {/* Calculators Dropdown */}
+        <li
+          className={styles.navItem}
+          onMouseEnter={
+            !isMenuOpen ? () => setShowDropdownCalculators(true) : undefined
+          }
+          onMouseLeave={
+            !isMenuOpen ? () => setShowDropdownCalculators(false) : undefined
+          }
+          onClick={
+            isMenuOpen
+              ? (e) => {
+                  e.stopPropagation();
+                  handleDropdownToggle(
+                    setShowDropdownCalculators,
+                    showDropdownCalculators
+                  );
+                }
+              : undefined
+          }
+        >
+          <span className={styles.navLink}>Calculators</span>
+          {showDropdownCalculators && (
+            <ul className={styles.dropdown}>
+              <li>
+                <Link href="/calculators/arbitrage">Arbitrage</Link>
+              </li>
+              <li>
+                <Link href="/calculators/expected-value">Expected Value</Link>
+              </li>
+              <li>
+                <Link href="/calculators/hedge">Hedge</Link>
+              </li>
+              <li>
+                <Link href="/calculators/implied-odds">Implied Odds</Link>
+              </li>
+              <li>
+                <Link href="/calculators/kelly-criterion">Kelly Criterion</Link>
+              </li>
+              <li>
+                <Link href="/calculators/no-vig">No Vig</Link>
+              </li>
+              <li>
+                <Link href="/calculators/odds-conversion">Odds Conversion</Link>
+              </li>
+              <li>
+                <Link href="/calculators/parlay">Parlay</Link>
+              </li>
+            </ul>
+          )}
+        </li>
+
+        {/* Blogs Nav Item (no dropdown) */}
+        <li className={styles.navItem}>
+          <Link href="/blogs" className={styles.navLink}>
+            Blogs
+          </Link>
+        </li>
+
+        {/* Account/Login actions inside navList, rightAlign on first item */}
         {isLoggedIn ? (
           <>
             <li className={`${styles.navItem} ${styles.rightAlign}`}>
