@@ -17,7 +17,7 @@ const Sponsors = () => (
       </p>
       <div className="flex justify-center">
         <Image
-          src="/assets/images/Celebrate.jpg"
+          src="/assets/images/Celebrate.png"
           alt="Sports analytics dashboard screenshot"
           width={1200}
           height={800}
