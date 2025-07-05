@@ -71,6 +71,25 @@ function LayoutContent({ children }) {
     <div>Loading...</div>
   ) : (
     <>
+      {/* Google Analytics tag (gtag.js) */}
+      <Script
+        id="gtag-base"
+        src="https://www.googletagmanager.com/gtag/js?id=G-XRGF2C0QFK"
+        strategy="afterInteractive"
+        async
+      />
+      <Script
+        id="gtag-init"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: `
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-XRGF2C0QFK');
+          `,
+        }}
+      />
       <Script
         id="org-ld-json"
         type="application/ld+json"
