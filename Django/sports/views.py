@@ -79,7 +79,7 @@ class MoneylineListView(APIView):
                 moneylines = Moneyline.objects.all().order_by('last_updated_timestamp')  # Fallback if no game_id is provided
 
             paginator = PageNumberPagination()
-            paginator.page_size = 250
+            paginator.page_size = 10000
             result_page = paginator.paginate_queryset(moneylines, request)
             serializer = MoneylineSerializer(result_page, many=True)
             data = paginator.get_paginated_response(serializer.data).data

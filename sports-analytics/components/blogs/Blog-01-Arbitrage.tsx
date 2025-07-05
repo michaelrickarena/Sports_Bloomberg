@@ -306,8 +306,7 @@ const Blog01Arbitrage = () => {
         </p>
         <p className="mt-4">
           <Link href="/" className="text-primary-600 underline font-bold">
-            Learn more about the services TheSmartLines offers to best assist
-            you.
+            Learn more about TheSmartLines sports betting tools and services
           </Link>
         </p>
         <div className="mt-10 p-6 bg-gray-100 rounded-xl shadow-sm">
