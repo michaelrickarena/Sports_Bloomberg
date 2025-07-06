@@ -66,6 +66,7 @@ logger = logging.getLogger("logsport")
 
 class MoneylineListView(APIView):
     def get(self, request):
+        print(f"MoneylineListView START: {datetime.datetime.utcnow().isoformat()}Z")
         game_id = request.query_params.get('game_id')
         page_number = request.query_params.get('page', 1)
         cache_key = f'moneyline_data_{game_id}_page_{page_number}'
