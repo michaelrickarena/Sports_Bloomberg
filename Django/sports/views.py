@@ -67,17 +67,21 @@ logger = logging.getLogger("logsport")
 
 class MoneylineListView(APIView):
     def get(self, request):
+        import datetime, time
+        t_start = time.time()
         print(f"MoneylineListView START: {datetime.datetime.utcnow().isoformat()}Z")
         game_id = request.query_params.get('game_id')
         page_number = request.query_params.get('page', 1)
         cache_key = f'moneyline_data_{game_id}_page_{page_number}'
 
-        # Check cache first
+        t_cache_get_start = time.time()
         data = cache.get(cache_key)
+        t_cache_get_end = time.time()
+        print(f"Cache get: {t_cache_get_end - t_cache_get_start:.2f}s")
+
         if not data:
             t0 = time.time()
             if game_id:
-                # Only fetch needed fields to reduce memory usage
                 moneylines = Moneyline.objects.filter(game_id=game_id).only(
                     "id", "game_id", "bookie", "matchup_type", "home_team", "line_1", "away_team", "line_2", "event_timestamp", "last_updated_timestamp", "sport_type"
                 ).order_by('last_updated_timestamp')
@@ -87,18 +91,22 @@ class MoneylineListView(APIView):
                 ).order_by('last_updated_timestamp')
 
             t1 = time.time()
+            print(f"DB Query: {t1-t0:.2f}s")
             paginator = PageNumberPagination()
             paginator.page_size = 250
             result_page = paginator.paginate_queryset(moneylines, request)
             t2 = time.time()
+            print(f"Pagination: {t2-t1:.2f}s")
             serializer = MoneylineSerializer(result_page, many=True)
             t3 = time.time()
+            print(f"Serialization: {t3-t2:.2f}s")
             data = paginator.get_paginated_response(serializer.data).data
+            t4 = time.time()
             cache.set(cache_key, data, timeout=7200)
+            print(f"Cache set: {time.time() - t4:.2f}s")
+            print(f"Total (no cache): {time.time() - t0:.2f}s")
 
-            # Timing logs for debugging
-            print(f"Query: {t1-t0:.2f}s, Pagination: {t2-t1:.2f}s, Serialization: {t3-t2:.2f}s, Total: {t3-t0:.2f}s")
-
+        print(f"Total request time: {time.time() - t_start:.2f}s")
         return Response(data)
 
 class OverunderListView(APIView):
