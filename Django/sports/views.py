@@ -84,14 +84,21 @@ class MoneylineListView(APIView):
             if game_id:
                 moneylines = Moneyline.objects.filter(game_id=game_id).only(
                     "id", "game_id", "bookie", "matchup_type", "home_team", "line_1", "away_team", "line_2", "event_timestamp", "last_updated_timestamp", "sport_type"
-                ).order_by('last_updated_timestamp')
+                ).order_by('last_updated_timestamp', 'id')
             else:
                 moneylines = Moneyline.objects.all().only(
                     "id", "game_id", "bookie", "matchup_type", "home_team", "line_1", "away_team", "line_2", "event_timestamp", "last_updated_timestamp", "sport_type"
-                ).order_by('last_updated_timestamp')
+                ).order_by('last_updated_timestamp', 'id')
 
             t1 = time.time()
             print(f"DB Query: {t1-t0:.2f}s")
+
+            # Log count timing to see if that's the bottleneck
+            t_count_start = time.time()
+            count = moneylines.count()
+            t_count_end = time.time()
+            print(f"Count: {count} rows, took {t_count_end - t_count_start:.2f}s")
+
             paginator = PageNumberPagination()
             paginator.page_size = 250
             result_page = paginator.paginate_queryset(moneylines, request)
