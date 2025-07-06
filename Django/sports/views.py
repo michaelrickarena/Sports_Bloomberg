@@ -66,26 +66,38 @@ logger = logging.getLogger("logsport")
 
 class MoneylineListView(APIView):
     def get(self, request):
-        game_id = request.query_params.get('game_id')  # Use 'game_id' to match the database column
-        page_number = request.query_params.get('page', 1)  # Get the page number from the query params
-        cache_key = f'moneyline_data_{game_id}_page_{page_number}'  # Cache key specific to game_id and page
+        game_id = request.query_params.get('game_id')
+        page_number = request.query_params.get('page', 1)
+        cache_key = f'moneyline_data_{game_id}_page_{page_number}'
 
         # Check cache first
         data = cache.get(cache_key)
         if not data:
+            t0 = time.time()
             if game_id:
-                moneylines = Moneyline.objects.filter(game_id=game_id).order_by('last_updated_timestamp')  # Filter by game_id and order by 'last_updated_timestamp'
+                # Only fetch needed fields to reduce memory usage
+                moneylines = Moneyline.objects.filter(game_id=game_id).only(
+                    "id", "game_id", "bookie", "matchup_type", "home_team", "line_1", "away_team", "line_2", "event_timestamp", "last_updated_timestamp", "sport_type"
+                ).order_by('last_updated_timestamp')
             else:
-                moneylines = Moneyline.objects.all().order_by('last_updated_timestamp')  # Fallback if no game_id is provided
+                moneylines = Moneyline.objects.all().only(
+                    "id", "game_id", "bookie", "matchup_type", "home_team", "line_1", "away_team", "line_2", "event_timestamp", "last_updated_timestamp", "sport_type"
+                ).order_by('last_updated_timestamp')
 
+            t1 = time.time()
             paginator = PageNumberPagination()
             paginator.page_size = 250
             result_page = paginator.paginate_queryset(moneylines, request)
+            t2 = time.time()
             serializer = MoneylineSerializer(result_page, many=True)
+            t3 = time.time()
             data = paginator.get_paginated_response(serializer.data).data
-            cache.set(cache_key, data, timeout=7200)  # Cache the result for 2 hours
+            cache.set(cache_key, data, timeout=7200)
 
-        return Response(data)  # Return the cached or fresh data
+            # Timing logs for debugging
+            print(f"Query: {t1-t0:.2f}s, Pagination: {t2-t1:.2f}s, Serialization: {t3-t2:.2f}s, Total: {t3-t0:.2f}s")
+
+        return Response(data)
 
 class OverunderListView(APIView):
     def get(self, request):
