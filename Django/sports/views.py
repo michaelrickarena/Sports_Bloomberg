@@ -67,53 +67,29 @@ logger = logging.getLogger("logsport")
 
 class MoneylineListView(APIView):
     def get(self, request):
-        import datetime, time
-        t_start = time.time()
-        print(f"MoneylineListView START: {datetime.datetime.utcnow().isoformat()}Z")
         game_id = request.query_params.get('game_id')
         page_number = request.query_params.get('page', 1)
         cache_key = f'moneyline_data_{game_id}_page_{page_number}'
 
-        t_cache_get_start = time.time()
+        # Only include fields needed by frontend
+        fields = [
+            "bookie", "matchup_type", "home_team", "line_1",
+            "away_team", "line_2", "event_timestamp", "last_updated_timestamp", "sport_type"
+        ]
+
         data = cache.get(cache_key)
-        t_cache_get_end = time.time()
-        print(f"Cache get: {t_cache_get_end - t_cache_get_start:.2f}s")
-
         if not data:
-            t0 = time.time()
             if game_id:
-                moneylines = Moneyline.objects.filter(game_id=game_id).only(
-                    "id", "game_id", "bookie", "matchup_type", "home_team", "line_1", "away_team", "line_2", "event_timestamp", "last_updated_timestamp", "sport_type"
-                ).order_by('last_updated_timestamp', 'id')
+                moneylines = Moneyline.objects.filter(game_id=game_id).values(*fields).order_by('last_updated_timestamp', 'id')
             else:
-                moneylines = Moneyline.objects.all().only(
-                    "id", "game_id", "bookie", "matchup_type", "home_team", "line_1", "away_team", "line_2", "event_timestamp", "last_updated_timestamp", "sport_type"
-                ).order_by('last_updated_timestamp', 'id')
-
-            t1 = time.time()
-            print(f"DB Query: {t1-t0:.2f}s")
-
-            # Log count timing to see if that's the bottleneck
-            t_count_start = time.time()
-            count = moneylines.count()
-            t_count_end = time.time()
-            print(f"Count: {count} rows, took {t_count_end - t_count_start:.2f}s")
+                moneylines = Moneyline.objects.all().values(*fields).order_by('last_updated_timestamp', 'id')
 
             paginator = PageNumberPagination()
             paginator.page_size = 250
             result_page = paginator.paginate_queryset(moneylines, request)
-            t2 = time.time()
-            print(f"Pagination: {t2-t1:.2f}s")
-            serializer = MoneylineSerializer(result_page, many=True)
-            t3 = time.time()
-            print(f"Serialization: {t3-t2:.2f}s")
-            data = paginator.get_paginated_response(serializer.data).data
-            t4 = time.time()
+            data = paginator.get_paginated_response(result_page).data
             cache.set(cache_key, data, timeout=7200)
-            print(f"Cache set: {time.time() - t4:.2f}s")
-            print(f"Total (no cache): {time.time() - t0:.2f}s")
 
-        print(f"Total request time: {time.time() - t_start:.2f}s")
         return Response(data)
 
 class OverunderListView(APIView):
@@ -123,6 +99,17 @@ class OverunderListView(APIView):
         page_number = request.query_params.get('page', 1)
         cache_key = f'overunder_data_{game_id}_{sport_type}_page_{page_number}'
 
+        fields = [
+            "bookie",
+            "last_updated_timestamp",
+            "over_under_total_1",
+            "over_under_total_2",
+            "over_under_line_1",
+            "over_under_line_2",
+            "over_or_under_1",
+            "over_or_under_2"
+        ]
+
         data = cache.get(cache_key)
         if not data:
             filters = {}
@@ -131,13 +118,12 @@ class OverunderListView(APIView):
             if sport_type:
                 filters['sport_type'] = sport_type
 
-            overunders = Overunder.objects.filter(**filters).order_by('last_updated_timestamp')
+            overunders = Overunder.objects.filter(**filters).values(*fields).order_by('last_updated_timestamp', 'id')
 
             paginator = PageNumberPagination()
             paginator.page_size = 250
             result_page = paginator.paginate_queryset(overunders, request)
-            serializer = OverunderSerializer(result_page, many=True)
-            data = paginator.get_paginated_response(serializer.data).data
+            data = paginator.get_paginated_response(result_page).data
             cache.set(cache_key, data, timeout=7200)
 
         return Response(data)
@@ -150,6 +136,18 @@ class SpreadsListView(APIView):
         page_number = request.query_params.get('page', 1)
         cache_key = f'spreads_data_{game_id}_{sport_type}_page_{page_number}'
 
+        # Only include fields used by your frontend (see Spreads.js)
+        fields = [
+            "bookie",
+            "home_team",
+            "away_team",
+            "spread_1",
+            "spread_2",
+            "line_1",
+            "line_2",
+            "last_updated_timestamp"
+        ]
+
         data = cache.get(cache_key)
         if not data:
             filters = {}
@@ -158,13 +156,12 @@ class SpreadsListView(APIView):
             if sport_type:
                 filters['sport_type'] = sport_type
 
-            spreads = Spreads.objects.filter(**filters).order_by('last_updated_timestamp')
+            spreads = Spreads.objects.filter(**filters).values(*fields).order_by('last_updated_timestamp', 'id')
 
             paginator = PageNumberPagination()
             paginator.page_size = 250
             result_page = paginator.paginate_queryset(spreads, request)
-            serializer = SpreadsSerializer(result_page, many=True)
-            data = paginator.get_paginated_response(serializer.data).data
+            data = paginator.get_paginated_response(result_page).data
             cache.set(cache_key, data, timeout=7200)
 
         return Response(data)
