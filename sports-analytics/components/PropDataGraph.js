@@ -36,10 +36,12 @@ const PropDataGraph = ({
   bet_type_name,
   selectedBookies,
   updateBookies,
-  selectedBetType, // New prop added for filtering, now always provided
+  selectedBetType,
 }) => {
   const [propData, setPropData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [bettingPoints, setBettingPoints] = useState([]);
+  const [selectedBettingPoint, setSelectedBettingPoint] = useState("");
   const chartRef = useRef(null);
 
   const toggleBookieSelection = (bookie) => {
@@ -69,6 +71,9 @@ const PropDataGraph = ({
         const data = await response.json();
 
         if (!bet_type) {
+          setPropData([]);
+          setBettingPoints([]);
+          setSelectedBettingPoint("");
           return;
         }
 
@@ -80,6 +85,13 @@ const PropDataGraph = ({
             (item) => item.bet_type === selectedBetType
           );
         }
+
+        // Extract unique betting points
+        const uniquePoints = [
+          ...new Set(filteredData.map((item) => item.betting_point)),
+        ];
+        setBettingPoints(uniquePoints);
+        setSelectedBettingPoint(uniquePoints[0] || "");
 
         setPropData(filteredData);
         const uniqueBookies = [
@@ -96,7 +108,10 @@ const PropDataGraph = ({
     fetchPropData();
   }, [selectedPlayer, selectedProp, bet_type, selectedBetType, updateBookies]);
 
-  useEffect(() => {}, [propData, selectedBookies]);
+  // Filter propData by selectedBettingPoint
+  const filteredPropData = selectedBettingPoint
+    ? propData.filter((item) => item.betting_point === selectedBettingPoint)
+    : propData;
 
   if (loading) {
     return (
@@ -107,17 +122,17 @@ const PropDataGraph = ({
     );
   }
 
-  if (propData.length === 0) {
+  if (filteredPropData.length === 0) {
     return <div>No valid data for this prop and bet type.</div>;
   }
 
   const allTimestamps = [
-    ...new Set(propData.map((item) => item.last_updated_timestamp)),
+    ...new Set(filteredPropData.map((item) => item.last_updated_timestamp)),
   ];
   const sortedTimestamps = allTimestamps.sort();
 
   const bookieData = {};
-  propData.forEach((item) => {
+  filteredPropData.forEach((item) => {
     const { bookie, last_updated_timestamp } = item;
     const betTypeValue = item[bet_type];
 
@@ -173,6 +188,30 @@ const PropDataGraph = ({
           .replace(/_/g, " ")
           .replace(/\b\w/g, (char) => char.toUpperCase())}
       </h4>
+
+      {/* Betting Point Dropdown */}
+      {bettingPoints.length > 0 && (
+        <div className="mb-4 flex items-center gap-2">
+          <label
+            htmlFor="betting-point-dropdown"
+            className="text-sm font-semibold text-gray-700 mr-2"
+          >
+            Select Betting Point:
+          </label>
+          <select
+            id="betting-point-dropdown"
+            value={selectedBettingPoint}
+            onChange={(e) => setSelectedBettingPoint(e.target.value)}
+            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-200"
+          >
+            {bettingPoints.map((point) => (
+              <option key={point} value={point}>
+                {point}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="chart-wrapper">
         <Line
