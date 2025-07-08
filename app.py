@@ -91,6 +91,15 @@ def lambda_handler(event=None, context=None):
         
         db.insert_NFL_scores(all_game_results)
 
+        arbitage = ArbitrageAnalyzer(all_prop_bets)
+        arbitage_props = arbitage.analyze()
+
+        #process expected value
+        ev_opportunities_ml_results = ExpectedValueAnalyzer(game_lines)
+        ev_opportunities_ml = ev_opportunities_ml_results.analyze_ml()
+
+        ev_opportunities_prop_results = ExpectedValueAnalyzer(all_prop_bets)
+        ev_opportunities_prop = ev_opportunities_prop_results.analyze_prop() 
  
         # Upload the CSV file to S3
         save_and_upload_props_to_s3(all_prop_bets, os.environ['S3_BUCKET_NAME'])
@@ -100,6 +109,14 @@ def lambda_handler(event=None, context=None):
 
         clean_tables('upcoming_games')
         db.insert_NFL_upcoming_games(all_event_details)
+
+        clean_tables('arbitrage')
+        db.insert_arbitrage(arbitage_props)
+        # Insert data into Postgresql tables for expected value
+        clean_tables('expected_value_moneyline')
+        db.insert_expected_value_moneyline(ev_opportunities_ml)
+        clean_tables('expected_value_props')
+        db.insert_expected_value_props(ev_opportunities_prop)
 
         # # insert latest bookie data and aggregate props data simultaneously
         clean_tables('latest_moneyline')
