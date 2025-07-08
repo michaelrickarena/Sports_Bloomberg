@@ -51,6 +51,36 @@ def lambda_handler(event=None, context=None):
         # db.create_latest_EV_moneyline()
         # db.create_latest_EV_props()
         # db.create_arbitrage()
+        def clean_tables(table_name):
+            try:
+                db.truncate_table(f'{table_name}')
+            except Exception as e:
+                logging.error(f'Error with truncating {table_name} table. Error: {e}')
+                pass
+
+        
+        def update_arbitrage_and_ev(db, odds_api):
+            # Fetch all prop bets for arbitrage and expected value
+            all_prop_bets, _ = odds_api.prop_bets_filters()
+            # Arbitrage
+            arbitage = ArbitrageAnalyzer(all_prop_bets)
+            arbitage_props = arbitage.analyze()
+            clean_tables('arbitrage')
+            db.insert_arbitrage(arbitage_props)
+            # Expected Value Moneyline
+            _, _, game_lines = odds_api.bookies_and_odds()
+            ev_opportunities_ml = ExpectedValueAnalyzer(game_lines).analyze_ml()
+            clean_tables('expected_value_moneyline')
+            db.insert_expected_value_moneyline(ev_opportunities_ml)
+            # Expected Value Props
+            ev_opportunities_prop = ExpectedValueAnalyzer(all_prop_bets).analyze_prop()
+            clean_tables('expected_value_props')
+            db.insert_expected_value_props(ev_opportunities_prop)
+
+        # Example usage: run this task if event requests it
+        if (event or {}).get("job") == "arbitrage_and_ev":
+            update_arbitrage_and_ev(db, odds_api)
+            return
 
         # API Usage from Odds API
         all_game_results = odds_api.filter_scores()
@@ -61,40 +91,15 @@ def lambda_handler(event=None, context=None):
         
         db.insert_NFL_scores(all_game_results)
 
-        arbitage = ArbitrageAnalyzer(all_prop_bets)
-        arbitage_props = arbitage.analyze()
-
-        #process expected value
-        ev_opportunities_ml_results = ExpectedValueAnalyzer(game_lines)
-        ev_opportunities_ml = ev_opportunities_ml_results.analyze_ml()
-
-        ev_opportunities_prop_results = ExpectedValueAnalyzer(all_prop_bets)
-        ev_opportunities_prop = ev_opportunities_prop_results.analyze_prop() 
-
-  
+ 
         # Upload the CSV file to S3
         save_and_upload_props_to_s3(all_prop_bets, os.environ['S3_BUCKET_NAME'])
     
         ## remove existing and Insert data into latest_tables for best bets
         VALID_TABLES = ['upcoming_games', 'latest_spreads', 'latest_moneyline', 'latest_overunder', 'expected_value_moneyline', 'expected_value_props', 'arbitrage']
 
-
-        def clean_tables(table_name):
-            try:
-                db.truncate_table(f'{table_name}')
-            except Exception as e:
-                logging.error(f'Error with truncating {table_name} table. Error: {e}')
-                pass
-
         clean_tables('upcoming_games')
         db.insert_NFL_upcoming_games(all_event_details)
-        clean_tables('arbitrage')
-        db.insert_arbitrage(arbitage_props)
-        # Insert data into Postgresql tables for expected value
-        clean_tables('expected_value_moneyline')
-        db.insert_expected_value_moneyline(ev_opportunities_ml)
-        clean_tables('expected_value_props')
-        db.insert_expected_value_props(ev_opportunities_prop)
 
         # # insert latest bookie data and aggregate props data simultaneously
         clean_tables('latest_moneyline')
@@ -199,4 +204,5 @@ def save_and_upload_props_to_s3(all_prop_bets, bucket_name, max_files=48,
         logger.error(f"Failed in save_and_upload_props_to_s3: {e}", exc_info=True)
 
 if __name__ == "__main__":
-    lambda_handler()
+    lambda_handler()    
+    # lambda_handler({"job": "arbitrage_and_ev"})
