@@ -60,10 +60,10 @@ const NavBar = () => {
       <div className="flex items-center gap-2 pl-2 py-1">
         <Link href="/">
           <Image
-            src="/assets/images/logo-small.png"
+            src="/assets/images/TheSmartLinesCropped.png"
             alt="Logo-small"
-            width={50}
-            height={50}
+            width={250}
+            height={250}
             className="inline-block align-middle rounded-md"
             priority
           />
